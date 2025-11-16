@@ -1,10 +1,26 @@
 #!/bin/bash
 
-# Heroku pre-build script to install system dependencies
+# Heroku pre-build script to install rclone
 
-echo "-----> Installing system dependencies"
+set -e
 
-# Install rclone
-curl https://rclone.org/install.sh | bash
+echo "-----> Installing rclone"
 
-echo "-----> System dependencies installed"
+# Download and install rclone to /app/.heroku/bin
+RCLONE_VERSION="v1.71.2"
+INSTALL_DIR="/app/.heroku/bin"
+
+mkdir -p "$INSTALL_DIR"
+
+# Download rclone
+curl -Lo rclone.zip "https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.zip"
+
+# Extract
+unzip -q rclone.zip
+cp "rclone-${RCLONE_VERSION}-linux-amd64/rclone" "$INSTALL_DIR/rclone"
+chmod +x "$INSTALL_DIR/rclone"
+
+# Cleanup
+rm -rf rclone.zip "rclone-${RCLONE_VERSION}-linux-amd64"
+
+echo "-----> Rclone installed to $INSTALL_DIR/rclone"
