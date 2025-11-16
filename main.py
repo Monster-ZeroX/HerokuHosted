@@ -10,6 +10,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 from config import settings
 from bot import BotHandlers
+from webapp.torrent_processor import WebTorrentProcessor
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +29,7 @@ class TorrentBot:
     def __init__(self):
         self.app = None
         self.handlers = None
+        self.web_processor = None
 
     async def initialize(self):
         """Initialize the bot application."""
@@ -45,6 +47,10 @@ class TorrentBot:
         # Initialize handlers
         self.handlers = BotHandlers()
         await self.handlers.start()
+
+        # Initialize web torrent processor
+        self.web_processor = WebTorrentProcessor()
+        logger.info("Web torrent processor initialized")
 
         # Build application
         self.app = Application.builder().token(settings.BOT_TOKEN).build()
@@ -77,11 +83,18 @@ class TorrentBot:
         await self.app.start()
         await self.app.updater.start_polling(drop_pending_updates=True)
 
+        # Start web torrent processor in background
+        asyncio.create_task(self.web_processor.start())
+        logger.info("Web torrent processor started")
+
         logger.info("Bot is running!")
 
     async def stop(self):
         """Stop the bot."""
         logger.info("Stopping bot...")
+
+        if self.web_processor:
+            await self.web_processor.stop()
 
         if self.app:
             await self.app.updater.stop()
