@@ -185,23 +185,28 @@ def init_db(app):
     with app.app_context():
         db.create_all()
 
-        # Create admin user if doesn't exist
         # Admin credentials can be configured via environment variables
         admin_username = os.environ.get('ADMIN_USERNAME', 'MonsterZeroX')
         admin_password = os.environ.get('ADMIN_PASSWORD', 'Kaveesha@2005')
         default_invite_code = os.environ.get('DEFAULT_INVITE_CODE', 'Kaveesha')
 
-        admin = User.query.filter_by(username=admin_username).first()
-        if not admin:
-            admin = User(username=admin_username, is_admin=True)
-            admin.set_password(admin_password)
-            db.session.add(admin)
+        try:
+            # Create admin user if doesn't exist
+            admin = User.query.filter_by(username=admin_username).first()
+            if not admin:
+                admin = User(username=admin_username, is_admin=True)
+                admin.set_password(admin_password)
+                db.session.add(admin)
 
-        # Create default invite code if doesn't exist
-        invite = InviteCode.query.filter_by(code=default_invite_code).first()
-        if not invite:
-            invite = InviteCode(code=default_invite_code, max_uses=-1)  # Unlimited uses
-            db.session.add(invite)
+            # Create default invite code if doesn't exist
+            invite = InviteCode.query.filter_by(code=default_invite_code).first()
+            if not invite:
+                invite = InviteCode(code=default_invite_code, max_uses=-1)  # Unlimited uses
+                db.session.add(invite)
 
-        db.session.commit()
-        print("Database initialized successfully")
+            db.session.commit()
+            print("Database initialized successfully")
+        except Exception as e:
+            print(f"Warning during database initialization: {e}")
+            print("Please run migrate_db.py to add new columns to existing database")
+            print("Command: python migrate_db.py")
