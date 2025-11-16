@@ -83,12 +83,75 @@
 
 {% block extra_js %}
 <script>
-// Auto-refresh status for active torrents
+// Track torrent statuses to detect new completions
+let previousStatuses = {};
+
+// Initialize with current statuses
+document.addEventListener('DOMContentLoaded', function() {
+    {% for torrent in torrents %}
+    previousStatuses[{{ torrent.id }}] = '{{ torrent.status }}';
+    {% endfor %}
+});
+
+// Auto-refresh status for active torrents and check for completions
 setInterval(() => {
-    const activeTorrents = document.querySelectorAll('.status-downloading, .status-uploading');
+    const activeTorrents = document.querySelectorAll('.status-downloading, .status-uploading, .status-queued');
     if (activeTorrents.length > 0) {
-        location.reload();
+        // Fetch updated torrent statuses
+        fetch('{{ url_for("dashboard") }}')
+            .then(response => response.text())
+            .then(html => {
+                // Parse the HTML to check for newly completed torrents
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Check each torrent card for status changes
+                const newCards = doc.querySelectorAll('.torrent-card');
+                newCards.forEach(card => {
+                    const badge = card.querySelector('[class*="status-"]');
+                    if (badge) {
+                        const classes = badge.className.split(' ');
+                        const statusClass = classes.find(c => c.startsWith('status-'));
+                        const newStatus = statusClass ? statusClass.replace('status-', '') : null;
+
+                        // Extract torrent ID from the View button href
+                        const viewBtn = card.querySelector('a[href*="torrent_detail"]');
+                        if (viewBtn) {
+                            const href = viewBtn.getAttribute('href');
+                            const torrentId = href.match(/torrent_detail\/(\d+)/)?.[1];
+
+                            if (torrentId) {
+                                const oldStatus = previousStatuses[torrentId];
+
+                                // Check if torrent just completed
+                                if (oldStatus && oldStatus !== 'completed' && newStatus === 'completed') {
+                                    const titleEl = card.querySelector('.card-title');
+                                    const torrentName = titleEl ? titleEl.textContent.trim() : 'Your torrent';
+
+                                    // Send notification
+                                    if (window.NotificationManager) {
+                                        NotificationManager.send('Torrent Completed! 🎉', {
+                                            body: `${torrentName} has finished downloading`,
+                                            icon: 'https://cdn-icons-png.flaticon.com/512/4436/4436481.png',
+                                            url: `/torrent_detail/${torrentId}`
+                                        });
+                                    }
+                                }
+
+                                previousStatuses[torrentId] = newStatus;
+                            }
+                        }
+                    }
+                });
+
+                // Reload the page to show updates
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Error checking torrent status:', error);
+                location.reload();
+            });
     }
-}, 10000); // Refresh every 10 seconds
+}, 10000); // Check every 10 seconds
 </script>
 {% endblock %}

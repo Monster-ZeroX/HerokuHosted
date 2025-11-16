@@ -154,9 +154,51 @@
 
 {% block extra_js %}
 <script>
-// Auto-refresh for active torrents
+// Track previous status
+let previousStatus = '{{ torrent.status }}';
+
+// Auto-refresh for active torrents and check for completion
 {% if torrent.status in ['downloading', 'uploading', 'queued'] %}
-setTimeout(() => location.reload(), 10000);
+setInterval(() => {
+    // Fetch updated status
+    fetch(window.location.href)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Get new status
+            const badge = doc.querySelector('[class*="status-"]');
+            if (badge) {
+                const classes = badge.className.split(' ');
+                const statusClass = classes.find(c => c.startsWith('status-'));
+                const newStatus = statusClass ? statusClass.replace('status-', '') : null;
+
+                // Check if torrent just completed
+                if (previousStatus !== 'completed' && newStatus === 'completed') {
+                    const torrentName = '{{ torrent.name }}';
+
+                    // Send notification
+                    if (window.NotificationManager) {
+                        NotificationManager.send('Torrent Completed! 🎉', {
+                            body: `${torrentName} has finished downloading`,
+                            icon: 'https://cdn-icons-png.flaticon.com/512/4436/4436481.png',
+                            url: window.location.href
+                        });
+                    }
+                }
+
+                previousStatus = newStatus;
+            }
+
+            // Reload the page
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error checking status:', error);
+            location.reload();
+        });
+}, 10000);
 {% endif %}
 </script>
 {% endblock %}
