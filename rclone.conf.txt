@@ -1,0 +1,8 @@
+[bot]
+type = drive
+client_id = 445892501452-ndvkvk2c6cen1kpoobd3horg1m97l912.apps.googleusercontent.com
+client_secret = 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
+scope = drive
+token = {"access_token":"ya29.a0ATi6K2vk9Xb3GHTPBg1zW1RjyM7ubhc7Wa885TKUtjIXadTZftHQwLt4Hug7J4zG-qQd0bwoY5Co_2u199FEzsAFbHhkacXx81fFKJzTH4pGg9CTehZFxquhMYqnH3_122QTk7ROgisu0NlXA-fH8W4WaAxonZbklgNEipFIW0I74M6CRUFjfriUwnVFa1U9lZnwm1YaCgYKAewSARASFQHGX2Mivcc65IMpP1_Ql-iudp8MFw0206","token_type":"Bearer","refresh_token":"1//0gc3FriMVVL4dCgYIARAAGBASNgF-L9IrN-DxA5KjKVidMXe1KAekSn9fx37PwCJAsD6pCZQ1rzw37gvyKYAECCUqW-pVKh_kQQ","expiry":"2025-11-17T03:14:25.1465097+05:30"}
+team_drive = 
+

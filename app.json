@@ -1,0 +1,92 @@
+{
+  "name": "Torrent to Google Drive Bot",
+  "description": "A Telegram bot that downloads torrents and uploads them to Google Drive with direct streaming links",
+  "repository": "https://github.com/yourusername/torrent-to-gdrive-bot",
+  "keywords": [
+    "telegram",
+    "bot",
+    "torrent",
+    "google-drive",
+    "rclone",
+    "libtorrent",
+    "streaming"
+  ],
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "env": {
+    "BOT_TOKEN": {
+      "description": "Your Telegram Bot Token from @BotFather",
+      "required": true
+    },
+    "RCLONE_CONFIG": {
+      "description": "Your rclone.conf file content (entire file as a single value). Encode this properly or use base64 if needed.",
+      "required": true
+    },
+    "RCLONE_REMOTE_NAME": {
+      "description": "The name of your rclone remote (e.g., 'gdrive' if your rclone.conf has [gdrive])",
+      "value": "gdrive",
+      "required": true
+    },
+    "RCLONE_BASE_DIR": {
+      "description": "Base directory on Google Drive where files will be uploaded",
+      "value": "TorrentBot",
+      "required": false
+    },
+    "INDEX_BASE_URL": {
+      "description": "Base URL of your Google Drive index for generating direct links (e.g., https://index.yourdomain.com). Leave empty if you don't have an index.",
+      "required": false
+    },
+    "OWNER_IDS": {
+      "description": "Comma-separated list of Telegram user IDs who can use the bot (leave empty to allow all users)",
+      "required": false
+    },
+    "DOWNLOAD_DIR": {
+      "description": "Temporary download directory",
+      "value": "/tmp/downloads",
+      "required": false
+    },
+    "MAX_DOWNLOAD_SIZE": {
+      "description": "Maximum download size in bytes (default: 1GB)",
+      "value": "1073741824",
+      "required": false
+    },
+    "CONCURRENT_DOWNLOADS": {
+      "description": "Maximum number of concurrent downloads",
+      "value": "3",
+      "required": false
+    },
+    "TORRENT_TIMEOUT": {
+      "description": "Torrent download timeout in seconds",
+      "value": "3600",
+      "required": false
+    },
+    "SEED_TIME": {
+      "description": "Time to seed after download in seconds (0 = no seeding)",
+      "value": "0",
+      "required": false
+    },
+    "PROGRESS_UPDATE_INTERVAL": {
+      "description": "Progress update interval in seconds",
+      "value": "10",
+      "required": false
+    },
+    "LOG_LEVEL": {
+      "description": "Logging level (DEBUG, INFO, WARNING, ERROR)",
+      "value": "INFO",
+      "required": false
+    }
+  },
+  "scripts": {
+    "postdeploy": "echo 'Bot deployed successfully! Use /start in your Telegram bot to begin.'"
+  }
+}
