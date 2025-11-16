@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
+<style>
+    .video-container {
+        background: #000;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .video-js {
+        width: 100%;
+        height: 600px;
+    }
+
+    .external-player-btn {
+        padding: 15px;
+        border-radius: 10px;
+        transition: all 0.3s;
+    }
+
+    .external-player-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="text-white fw-bold"><i class="bi bi-play-circle"></i> Video Player</h2>
+        <p class="text-white-50">{{ file.file_path.split('/')[-1] }}</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('torrent_detail', torrent_id=torrent.id) }}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-9">
+        <div class="card mb-4">
+            <div class="card-body p-0 video-container">
+                <video id="my-video" class="video-js vjs-big-play-centered" controls preload="auto">
+                    <source src="{{ file.index_link }}" type="video/mp4">
+                    <p class="vjs-no-js">
+                        To view this video please enable JavaScript, and consider upgrading to a
+                        web browser that supports HTML5 video
+                    </p>
+                </video>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> File Info</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>Name:</strong><br>
+                    <small>{{ file.file_path.split('/')[-1] }}</small>
+                </p>
+                {% if file.file_size %}
+                <p class="mb-0">
+                    <strong>Size:</strong><br>
+                    {{ (file.file_size / 1024 / 1024)|round(2) }} MB
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-app"></i> External Players</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Open with your favorite video player</p>
+
+                <div class="d-grid gap-2">
+                    <!-- VLC -->
+                    <a href="vlc://{{ file.index_link }}" class="btn btn-outline-warning external-player-btn">
+                        <i class="bi bi-cone-striped"></i> VLC Player
+                    </a>
+
+                    <!-- MX Player (Android) -->
+                    <a href="intent:{{ file.index_link }}#Intent;package=com.mxtech.videoplayer.ad;S.title={{ file.file_path.split('/')[-1] }};end"
+                       class="btn btn-outline-info external-player-btn">
+                        <i class="bi bi-phone"></i> MX Player
+                    </a>
+
+                    <!-- PotPlayer -->
+                    <a href="potplayer://{{ file.index_link }}" class="btn btn-outline-primary external-player-btn">
+                        <i class="bi bi-play-btn"></i> PotPlayer
+                    </a>
+
+                    <!-- Direct Download -->
+                    <a href="{{ file.index_link }}" download class="btn btn-outline-success external-player-btn">
+                        <i class="bi bi-download"></i> Download File
+                    </a>
+                </div>
+
+                <hr>
+
+                <details class="mt-3">
+                    <summary class="text-primary" style="cursor: pointer;">
+                        <i class="bi bi-link-45deg"></i> Direct Link
+                    </summary>
+                    <div class="mt-2">
+                        <input type="text" class="form-control form-control-sm" value="{{ file.index_link }}"
+                               onclick="this.select(); navigator.clipboard.writeText(this.value);" readonly>
+                        <small class="text-muted">Click to copy</small>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Other files in torrent -->
+{% if torrent.files|length > 1 %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-collection-play"></i> Other Files in This Torrent</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for other_file in torrent.files %}
+                    {% if other_file.id != file.id and other_file.index_link %}
+                    <a href="{{ url_for('player', file_id=other_file.id) }}"
+                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-file-play"></i> {{ other_file.file_path.split('/')[-1] }}
+                        </span>
+                        {% if other_file.file_size %}
+                        <span class="badge bg-secondary">{{ (other_file.file_size / 1024 / 1024)|round(2) }} MB</span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+<script>
+    // Initialize Video.js
+    const player = videojs('my-video', {
+        controls: true,
+        autoplay: false,
+        preload: 'auto',
+        fluid: true,
+        responsive: true,
+        playbackRates: [0.5, 1, 1.5, 2],
+        controlBar: {
+            children: [
+                'playToggle',
+                'volumePanel',
+                'currentTimeDisplay',
+                'timeDivider',
+                'durationDisplay',
+                'progressControl',
+                'playbackRateMenuButton',
+                'qualitySelector',
+                'fullscreenToggle'
+            ]
+        }
+    });
+
+    // Save playback position
+    player.on('timeupdate', function() {
+        localStorage.setItem('playback_{{ file.id }}', player.currentTime());
+    });
+
+    // Restore playback position
+    player.on('loadedmetadata', function() {
+        const savedTime = localStorage.getItem('playback_{{ file.id }}');
+        if (savedTime) {
+            player.currentTime(parseFloat(savedTime));
+        }
+    });
+
+    // Clear position on end
+    player.on('ended', function() {
+        localStorage.removeItem('playback_{{ file.id }}');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="text-center text-white mb-5">
+            <h1 class="display-3 fw-bold mb-3">
+                <i class="bi bi-cloud-arrow-up"></i> Torrent to Google Drive
+            </h1>
+            <p class="lead">Download torrents directly to your Google Drive and stream them instantly</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-download text-primary" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4>Fast Downloads</h4>
+                    <p class="text-muted">High-speed torrent downloads with progress tracking</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-cloud-upload text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4>Auto Upload</h4>
+                    <p class="text-muted">Automatic upload to Google Drive after download</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-play-circle text-danger" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4>Stream Online</h4>
+                    <p class="text-muted">Watch videos directly in browser or external player</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-5 me-3">
+                <i class="bi bi-person-plus"></i> Get Started
+            </a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg px-5">
+                <i class="bi bi-box-arrow-in-right"></i> Login
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

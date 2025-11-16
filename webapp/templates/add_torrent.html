@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="text-white fw-bold"><i class="bi bi-plus-circle"></i> Add Torrent</h2>
+        <p class="text-white-50">Add a new torrent to download</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-4">
+                        <label for="magnet_link" class="form-label fw-bold">Magnet Link</label>
+                        <textarea class="form-control" id="magnet_link" name="magnet_link" rows="4"
+                                  placeholder="magnet:?xt=urn:btih:..." required></textarea>
+                        <small class="text-muted">Paste your magnet link here</small>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-download"></i> Add to Queue
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> How it works</h5>
+                <ol class="mb-0">
+                    <li>Paste your magnet link above</li>
+                    <li>The torrent will be added to the download queue</li>
+                    <li>Files will be downloaded and uploaded to Google Drive</li>
+                    <li>You can stream or download files from the dashboard</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

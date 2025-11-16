@@ -21,6 +21,10 @@
     }
   ],
   "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "eco"
+    },
     "worker": {
       "quantity": 1,
       "size": "eco"
@@ -87,8 +91,16 @@
       "description": "Logging level (DEBUG, INFO, WARNING, ERROR)",
       "value": "INFO",
       "required": false
+    },
+    "SECRET_KEY": {
+      "description": "Secret key for Flask sessions (auto-generated if not set)",
+      "generator": "secret",
+      "required": false
     }
   },
+  "addons": [
+    "heroku-postgresql:essential-0"
+  ],
   "scripts": {
     "postdeploy": "echo 'Bot deployed successfully! Use /start in your Telegram bot to begin.'"
   }

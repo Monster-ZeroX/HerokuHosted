@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="text-white fw-bold"><i class="bi bi-file-earmark-text"></i> Torrent Details</h2>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h4 class="mb-0">{{ torrent.name }}</h4>
+                    <span class="badge status-{{ torrent.status }} fs-6">{{ torrent.status }}</span>
+                </div>
+
+                {% if torrent.status in ['downloading', 'uploading'] %}
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Progress</span>
+                        <span class="fw-bold">{{ '%.1f' % torrent.progress }}%</span>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-primary" style="width: {{ torrent.progress }}%">
+                            {{ '%.1f' % torrent.progress }}%
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if torrent.error_message %}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> {{ torrent.error_message }}
+                </div>
+                {% endif %}
+
+                <hr>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-calendar"></i> Created:</strong><br>
+                        {{ torrent.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </div>
+                    {% if torrent.completed_at %}
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-check-circle"></i> Completed:</strong><br>
+                        {{ torrent.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </div>
+                    {% endif %}
+                    {% if torrent.total_size %}
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-hdd"></i> Size:</strong><br>
+                        {{ (torrent.total_size / 1024 / 1024 / 1024)|round(2) }} GB
+                    </div>
+                    {% endif %}
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-hash"></i> Info Hash:</strong><br>
+                        <code>{{ torrent.info_hash[:20] }}...</code>
+                    </div>
+                </div>
+
+                {% if torrent.status == 'completed' %}
+                <hr>
+                <div class="d-grid gap-2">
+                    {% if torrent.gdrive_link %}
+                    <a href="{{ torrent.gdrive_link }}" target="_blank" class="btn btn-primary">
+                        <i class="bi bi-google"></i> Open in Google Drive
+                    </a>
+                    {% endif %}
+                    {% if torrent.index_link %}
+                    <a href="{{ torrent.index_link }}" target="_blank" class="btn btn-success">
+                        <i class="bi bi-link-45deg"></i> Direct Download Link
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if torrent.files %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-folder"></i> Files ({{ torrent.files|length }})</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for file in torrent.files %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-file-earmark"></i>
+                                <strong>{{ file.file_path.split('/')[-1] }}</strong>
+                                {% if file.file_size %}
+                                <br><small class="text-muted">{{ (file.file_size / 1024 / 1024)|round(2) }} MB</small>
+                                {% endif %}
+                            </div>
+                            {% if file.index_link and torrent.status == 'completed' %}
+                            <div class="btn-group">
+                                <a href="{{ url_for('player', file_id=file.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-play-circle"></i> Play
+                                </a>
+                                <a href="{{ file.index_link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-download"></i> Download
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-gear"></i> Actions</h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="location.reload()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Status
+                    </button>
+                    <form method="POST" action="{{ url_for('delete_torrent', torrent_id=torrent.id) }}"
+                          onsubmit="return confirm('Are you sure you want to delete this torrent?');">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-trash"></i> Delete Torrent
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if torrent.status in ['downloading', 'uploading', 'queued'] %}
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mb-0">This page will auto-refresh</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh for active torrents
+{% if torrent.status in ['downloading', 'uploading', 'queued'] %}
+setTimeout(() => location.reload(), 10000);
+{% endif %}
+</script>
+{% endblock %}
