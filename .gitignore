@@ -46,6 +46,7 @@ downloads/
 
 # Logs
 *.log
+*-logs-*.txt
 
 # OS
 .DS_Store
