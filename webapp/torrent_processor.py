@@ -207,11 +207,9 @@ class WebTorrentProcessor:
                 else:
                     relative_path = file_path.relative_to(download_path)
 
-                # Construct index link if INDEX_BASE_URL is set
-                index_link = None
-                if settings.INDEX_BASE_URL:
-                    index_path = f"{settings.RCLONE_BASE_DIR}/{torrent_name}/{relative_path}"
-                    index_link = f"{settings.INDEX_BASE_URL.rstrip('/')}/{index_path}"
+                # Construct index link using settings.get_index_url (same as bot)
+                # Path format: torrent_name/file_path
+                index_link = settings.get_index_url(f"{torrent_name}/{relative_path}")
 
                 # Create file record
                 torrent_file = TorrentFile(
