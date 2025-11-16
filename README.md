@@ -72,7 +72,8 @@ HerokuHosted/
 
 ### Option 1: Deploy to Heroku (Recommended)
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://www.heroku.com/deploy?template=https://github.com/Monster-ZeroX/HerokuHosted)
+
 
 1. Click the "Deploy to Heroku" button above
 2. Fill in the required environment variables:
