@@ -89,7 +89,7 @@ class WebTorrentProcessor:
                 torrent_record.status = 'downloading'
                 db.session.commit()
 
-                torrent_info = await self.torrent_client.get_metadata(magnet_link)
+                torrent_info = await self.torrent_client.get_torrent_info(magnet_link)
 
                 # Update torrent record with metadata
                 torrent_record.info_hash = torrent_info.info_hash
@@ -140,14 +140,14 @@ class WebTorrentProcessor:
         download_dir = Path(settings.DOWNLOAD_DIR)
         download_dir.mkdir(parents=True, exist_ok=True)
 
-        def progress_callback(progress):
+        async def progress_callback(progress):
             """Update database with download progress."""
             from webapp.app import app
 
             with app.app_context():
-                torrent_record = Torrent.query.get(torrent_record.id)
-                if torrent_record:
-                    torrent_record.progress = progress.progress
+                rec = Torrent.query.get(torrent_record.id)
+                if rec:
+                    rec.progress = progress.progress
                     db.session.commit()
 
         # Download all files
@@ -164,15 +164,15 @@ class WebTorrentProcessor:
         """Upload files to Google Drive."""
         remote_path = f"{settings.RCLONE_BASE_DIR}/{torrent_name}"
 
-        def progress_callback(progress):
+        async def progress_callback(progress):
             """Update database with upload progress."""
             from webapp.app import app
 
             with app.app_context():
-                torrent_record = Torrent.query.get(torrent_record.id)
-                if torrent_record:
+                rec = Torrent.query.get(torrent_record.id)
+                if rec:
                     # Upload progress is 50-100% of total
-                    torrent_record.progress = 50.0 + (progress.progress / 2.0)
+                    rec.progress = 50.0 + (progress.progress / 2.0)
                     db.session.commit()
 
         gdrive_link = await self.rclone_manager.upload(
