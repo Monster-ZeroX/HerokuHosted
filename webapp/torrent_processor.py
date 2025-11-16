@@ -107,15 +107,22 @@ class WebTorrentProcessor:
                 torrent_record.progress = 0.0
                 db.session.commit()
 
-                gdrive_link = await self.upload_to_drive(download_path, torrent_info.name, torrent_record)
+                await self.upload_to_drive(download_path, torrent_info.name, torrent_record)
 
-                # Step 4: Create file records
+                # Step 4: Get Google Drive folder web link
+                gdrive_folder_link = await self.rclone_manager.get_folder_weblink(torrent_info.name)
+
+                # Step 5: Get Drive Index link for the torrent folder
+                index_link = settings.get_index_url(torrent_info.name)
+
+                # Step 6: Create file records
                 await self.create_file_records(torrent_record, download_path, torrent_info.name)
 
-                # Step 5: Mark as completed
+                # Step 7: Mark as completed
                 torrent_record.status = 'completed'
                 torrent_record.progress = 100.0
-                torrent_record.gdrive_link = gdrive_link
+                torrent_record.gdrive_link = gdrive_folder_link
+                torrent_record.index_link = index_link
                 db.session.commit()
 
                 logger.info(f"Torrent {torrent_id} completed successfully")
@@ -160,7 +167,7 @@ class WebTorrentProcessor:
         logger.info(f"Download completed: {download_path}")
         return Path(download_path)
 
-    async def upload_to_drive(self, local_path: Path, torrent_name: str, torrent_record) -> str:
+    async def upload_to_drive(self, local_path: Path, torrent_name: str, torrent_record):
         """Upload files to Google Drive."""
         remote_path = f"{settings.RCLONE_BASE_DIR}/{torrent_name}"
 
@@ -175,14 +182,13 @@ class WebTorrentProcessor:
                     rec.progress = 50.0 + (progress.progress / 2.0)
                     db.session.commit()
 
-        gdrive_link = await self.rclone_manager.upload(
+        await self.rclone_manager.upload(
             str(local_path),
             remote_path,
             progress_callback=progress_callback
         )
 
-        logger.info(f"Upload completed: {gdrive_link}")
-        return gdrive_link
+        logger.info(f"Upload completed: {remote_path}")
 
     async def create_file_records(self, torrent_record, download_path: Path, torrent_name: str):
         """Create TorrentFile records in database."""

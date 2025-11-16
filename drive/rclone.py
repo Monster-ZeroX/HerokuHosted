@@ -289,6 +289,69 @@ class RcloneManager:
             logger.error(f"Error listing files: {e}")
             return []
 
+    async def get_folder_weblink(self, remote_path: str) -> Optional[str]:
+        """
+        Get Google Drive folder web view link.
+
+        Args:
+            remote_path: Remote path relative to base directory
+
+        Returns:
+            Web view link for the folder or None
+        """
+        full_remote_path = settings.get_gdrive_path(remote_path)
+
+        # Get folder ID using lsjson with --files-only=false --dirs-only
+        cmd = [
+            "rclone",
+            "lsjson",
+            full_remote_path,
+            "--config", self.config_path,
+            "--max-depth", "1"
+        ]
+
+        try:
+            # First, we need to get the parent directory and find this folder
+            parent_path = str(Path(remote_path).parent) if remote_path != "." else ""
+            folder_name = Path(remote_path).name if remote_path != "." else remote_path
+
+            full_parent_path = settings.get_gdrive_path(parent_path) if parent_path else settings.get_gdrive_path("")
+
+            cmd = [
+                "rclone",
+                "lsjson",
+                full_parent_path,
+                "--config", self.config_path,
+                "--dirs-only"
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                items = json.loads(stdout.decode())
+                for item in items:
+                    if item.get("Name") == folder_name and item.get("IsDir"):
+                        folder_id = item.get("ID")
+                        if folder_id:
+                            # Construct Google Drive folder view URL
+                            return f"https://drive.google.com/drive/folders/{folder_id}"
+
+                logger.warning(f"Could not find folder ID for {remote_path}")
+                return None
+            else:
+                logger.error(f"Failed to get folder info: {stderr.decode()}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting folder weblink: {e}")
+            return None
+
     async def delete(self, remote_path: str):
         """
         Delete file or directory from Google Drive.

@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col">
-        <h2 class="text-white fw-bold"><i class="bi bi-file-earmark-text"></i> Torrent Details</h2>
+        <h2 class="fw-bold"><i class="bi bi-file-earmark-text"></i> Torrent Details</h2>
     </div>
     <div class="col-auto">
         <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light">
@@ -76,7 +76,7 @@
                     {% endif %}
                     {% if torrent.index_link %}
                     <a href="{{ torrent.index_link }}" target="_blank" class="btn btn-success">
-                        <i class="bi bi-link-45deg"></i> Direct Download Link
+                        <i class="bi bi-folder2-open"></i> Open in Drive Index
                     </a>
                     {% endif %}
                 </div>

@@ -7,71 +7,318 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
         :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --success-color: #10b981;
-            --danger-color: #ef4444;
-            --dark-bg: #1f2937;
-            --card-bg: #374151;
+            --apple-blue: #007AFF;
+            --apple-green: #34C759;
+            --apple-orange: #FF9500;
+            --apple-red: #FF3B30;
+            --apple-gray: #8E8E93;
+            --apple-gray-light: #F2F2F7;
+            --apple-gray-bg: #FAFAFA;
+            --apple-border: rgba(0, 0, 0, 0.06);
+            --apple-shadow: rgba(0, 0, 0, 0.08);
+            --apple-shadow-hover: rgba(0, 0, 0, 0.12);
+        }
+
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         body {
             min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--apple-gray-bg);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            color: #1d1d1f;
+            font-size: 15px;
+            line-height: 1.5;
         }
 
         .navbar {
-            background-color: rgba(31, 41, 55, 0.95) !important;
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--apple-border);
+            box-shadow: none;
+            padding: 0.8rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1d1d1f !important;
+            letter-spacing: -0.3px;
+        }
+
+        .nav-link {
+            color: #1d1d1f !important;
+            font-weight: 400;
+            font-size: 15px;
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background-color: var(--apple-gray-light);
+            color: #000 !important;
         }
 
         .card {
-            background-color: rgba(255, 255, 255, 0.95);
+            background: #fff;
+            border: 1px solid var(--apple-border);
+            border-radius: 16px;
+            box-shadow: 0 2px 8px var(--apple-shadow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 24px var(--apple-shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--apple-border);
+            padding: 1.25rem 1.5rem;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .btn {
+            font-weight: 500;
+            font-size: 15px;
+            padding: 0.65rem 1.25rem;
+            border-radius: 10px;
             border: none;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: -0.2px;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border: none;
+            background: var(--apple-blue);
+            color: #fff;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
+            background: #0051D5;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        }
+
+        .btn-success {
+            background: var(--apple-green);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #28A745;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+        }
+
+        .btn-outline-primary {
+            color: var(--apple-blue);
+            border: 1.5px solid var(--apple-blue);
+            background: transparent;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--apple-blue);
+            color: #fff;
+            transform: scale(1.02);
+        }
+
+        .btn-outline-light {
+            color: #1d1d1f;
+            border: 1.5px solid var(--apple-border);
+            background: #fff;
+        }
+
+        .btn-outline-light:hover {
+            background: var(--apple-gray-light);
+            border-color: var(--apple-border);
+            color: #000;
+        }
+
+        .btn-outline-danger {
+            color: var(--apple-red);
+            border: 1.5px solid var(--apple-red);
+            background: transparent;
+        }
+
+        .btn-outline-danger:hover {
+            background: var(--apple-red);
+            color: #fff;
+            transform: scale(1.02);
         }
 
         .torrent-card {
-            transition: transform 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .torrent-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px var(--apple-shadow-hover);
         }
 
         .progress {
-            height: 8px;
+            height: 6px;
             border-radius: 10px;
+            background-color: var(--apple-gray-light);
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--apple-blue), #00C7FF);
+            border-radius: 10px;
+            transition: width 0.3s ease;
         }
 
         .badge {
-            padding: 0.5em 1em;
+            padding: 0.4em 0.9em;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: -0.1px;
         }
 
-        .status-queued { background-color: #6b7280; }
-        .status-downloading { background-color: #3b82f6; }
-        .status-uploading { background-color: #f59e0b; }
-        .status-completed { background-color: var(--success-color); }
-        .status-failed { background-color: var(--danger-color); }
+        .status-queued {
+            background-color: var(--apple-gray);
+            color: #fff;
+        }
+        .status-downloading {
+            background-color: var(--apple-blue);
+            color: #fff;
+        }
+        .status-uploading {
+            background-color: var(--apple-orange);
+            color: #fff;
+        }
+        .status-completed {
+            background-color: var(--apple-green);
+            color: #fff;
+        }
+        .status-failed {
+            background-color: var(--apple-red);
+            color: #fff;
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 1rem 1.25rem;
+            font-size: 15px;
+        }
+
+        .alert-success {
+            background-color: rgba(52, 199, 89, 0.1);
+            color: var(--apple-green);
+        }
+
+        .alert-danger {
+            background-color: rgba(255, 59, 48, 0.1);
+            color: var(--apple-red);
+        }
+
+        .list-group-item {
+            border: none;
+            border-bottom: 1px solid var(--apple-border);
+            padding: 1.25rem 1.5rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .list-group-item:hover {
+            background-color: var(--apple-gray-light);
+        }
+
+        .list-group-item:last-child {
+            border-bottom: none;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            color: #1d1d1f;
+        }
+
+        .text-white {
+            color: #1d1d1f !important;
+        }
 
         footer {
-            background-color: rgba(31, 41, 55, 0.95);
-            color: white;
+            background: transparent;
+            color: var(--apple-gray);
             padding: 2rem 0;
             margin-top: 4rem;
+            border-top: 1px solid var(--apple-border);
+        }
+
+        .dropdown-menu {
+            border: 1px solid var(--apple-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px var(--apple-shadow);
+            padding: 0.5rem;
+        }
+
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            font-size: 15px;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--apple-gray-light);
+        }
+
+        input, textarea, select {
+            border: 1.5px solid var(--apple-border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            font-size: 15px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+            outline: none;
+        }
+
+        .spinner-border {
+            width: 2rem;
+            height: 2rem;
+            border-width: 0.2rem;
+        }
+
+        /* Smooth animations */
+        .fade {
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Custom scrollbar for WebKit browsers */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--apple-gray-light);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--apple-gray);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6E6E73;
         }
     </style>
     {% block extra_css %}{% endblock %}
