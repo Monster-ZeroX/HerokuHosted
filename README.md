@@ -4,6 +4,7 @@ A powerful Telegram bot that downloads torrents and automatically uploads them t
 
 ## Features
 
+### Telegram Bot
 - **Magnet Link & .torrent File Support** - Send magnet links or upload .torrent files directly
 - **Smart File Selection** - Choose specific files to download or grab everything
 - **Interactive UI** - Paginated inline keyboards for easy file browsing and selection
@@ -11,45 +12,90 @@ A powerful Telegram bot that downloads torrents and automatically uploads them t
 - **Google Drive Integration** - Automatic upload via rclone with shareable links
 - **Direct Streaming Links** - Generate direct streaming URLs via Google Drive index
 - **Concurrent Downloads** - Queue system for handling multiple users simultaneously
+
+### Web Application
+- **User Authentication** - Secure login with username, password, and invite code system
+- **Invite Code Access** - Controlled registration with customizable invite codes
+- **Admin Panel** - Comprehensive admin interface for managing users and invite codes
+- **Torrent Management** - Add torrents via web interface and track downloads
+- **Online Video Player** - Built-in Video.js player for streaming videos directly in browser
+- **External Player Support** - One-click integration with VLC, MX Player, PotPlayer, and more
+- **Responsive Design** - Modern Bootstrap UI that works on desktop and mobile
+- **Database Integration** - PostgreSQL-backed system for reliable data persistence
+
+### General
 - **Clean & Modular** - Well-organized codebase for easy customization
 - **Heroku Ready** - One-click deployment with included app.json
+- **Dual Process** - Web server and bot worker running simultaneously on same app
 
 ## Demo
 
+### Telegram Bot Workflow
 1. Send a magnet link → Bot fetches metadata
 2. Choose "Download All" or "Select Files"
 3. If selecting, use paginated keyboard to pick files
 4. Bot downloads torrent → uploads to Google Drive
 5. Receive Google Drive link + Direct streaming link buttons
 
+### Web Application Workflow
+1. Visit your app URL (e.g., `https://your-app.herokuapp.com`)
+2. Register with username, password, and invite code: **Kaveesha**
+3. Login to your dashboard
+4. Add magnet link or browse existing torrents
+5. Watch online with built-in player or use external players
+6. Copy direct streaming links for sharing
+
+### Admin Access
+- **Username**: MonsterZeroX
+- **Password**: Kaveesha@2005
+- Access admin panel at `/admin` to manage users and invite codes
+
 ## Architecture
 
 ```
 HerokuHosted/
-├── bot/              # Telegram bot handlers
+├── bot/                    # Telegram bot handlers
 │   ├── __init__.py
-│   └── handlers.py   # Command and callback handlers
-├── torrent/          # Torrent client wrapper
+│   └── handlers.py         # Command and callback handlers
+├── torrent/                # Torrent client wrapper
 │   ├── __init__.py
-│   └── client.py     # libtorrent integration
-├── drive/            # Google Drive integration
+│   └── client.py           # libtorrent integration
+├── drive/                  # Google Drive integration
 │   ├── __init__.py
-│   └── rclone.py     # rclone wrapper
-├── utils/            # Utilities
+│   └── rclone.py           # rclone wrapper
+├── utils/                  # Utilities
 │   ├── __init__.py
-│   ├── keyboards.py  # Inline keyboard builders
-│   └── queue.py      # Job queue system
-├── config/           # Configuration
+│   ├── keyboards.py        # Inline keyboard builders
+│   └── queue.py            # Job queue system
+├── config/                 # Configuration
 │   ├── __init__.py
-│   └── settings.py   # Environment-based settings
-├── bin/              # Build scripts
-│   └── pre_compile   # Heroku buildpack hooks
-├── main.py           # Application entry point
-├── requirements.txt  # Python dependencies
-├── Procfile          # Heroku process definition
-├── runtime.txt       # Python version
-├── app.json          # Heroku deployment manifest
-└── README.md         # This file
+│   └── settings.py         # Environment-based settings
+├── webapp/                 # Web application (NEW!)
+│   ├── __init__.py
+│   ├── app.py              # Flask routes and logic
+│   ├── models.py           # Database models
+│   ├── static/
+│   │   └── style.css       # Custom CSS
+│   └── templates/          # HTML templates
+│       ├── base.html       # Base template
+│       ├── login.html      # Login page
+│       ├── register.html   # Registration page
+│       ├── dashboard.html  # User dashboard
+│       ├── add_torrent.html
+│       ├── torrent_detail.html
+│       ├── player.html     # Video player
+│       └── admin.html      # Admin panel
+├── bin/                    # Build scripts
+│   └── pre_compile         # Heroku buildpack hooks
+├── main.py                 # Bot entry point (worker)
+├── web_server.py           # Web app entry point (web)
+├── requirements.txt        # Python dependencies
+├── Procfile                # Heroku process definition
+├── runtime.txt             # Python version
+├── .python-version         # Python version (new format)
+├── Aptfile                 # System packages
+├── app.json                # Heroku deployment manifest
+└── README.md               # This file
 ```
 
 ## Prerequisites
@@ -84,7 +130,13 @@ HerokuHosted/
    - **INDEX_BASE_URL**: Your Google Drive index URL (optional)
 3. Click "Deploy app"
 4. Wait for deployment to complete
-5. Open your Telegram bot and send `/start`
+5. **Access the web app**: Visit `https://your-app-name.herokuapp.com`
+6. **Register**: Use invite code **Kaveesha** to create your account
+7. **Use Telegram bot**: Open your Telegram bot and send `/start`
+
+**Default Credentials:**
+- **Admin**: Username: `MonsterZeroX` | Password: `Kaveesha@2005`
+- **Invite Code**: `Kaveesha` (required for registration)
 
 ### Option 2: Manual Heroku Deployment
 
@@ -111,12 +163,17 @@ heroku config:set RCLONE_CONFIG="$(cat ~/.config/rclone/rclone.conf)"
 # Deploy
 git push heroku main
 
-# Scale worker dyno
-heroku ps:scale worker=1
+# Scale both dynos
+heroku ps:scale web=1 worker=1
 
 # Check logs
 heroku logs --tail
 ```
+
+**After deployment:**
+- Web app: `https://your-app-name.herokuapp.com`
+- Admin panel: `https://your-app-name.herokuapp.com/admin`
+- Login with **MonsterZeroX** / **Kaveesha@2005**
 
 ### Option 3: Local Development
 
@@ -147,9 +204,17 @@ export RCLONE_BASE_DIR="TorrentBot"
 export INDEX_BASE_URL="https://your-index.com"
 export RCLONE_CONFIG_PATH="/app/rclone.conf"
 
-# Run bot
+# Run bot (in one terminal)
 python main.py
+
+# Run web server (in another terminal)
+python web_server.py
 ```
+
+**Local access:**
+- Web app: `http://localhost:5000`
+- Use invite code **Kaveesha** to register
+- Admin login: **MonsterZeroX** / **Kaveesha@2005**
 
 ## Configuration
 
@@ -204,13 +269,15 @@ After deploying your index:
 
 ## Usage
 
-### Commands
+### Telegram Bot
+
+#### Commands
 
 - `/start` - Show welcome message and instructions
 - `/status` - Check your active download jobs
 - `/cancel` - Cancel an ongoing job
 
-### Workflow
+#### Workflow
 
 1. **Send a magnet link or .torrent file**
    ```
@@ -238,6 +305,74 @@ After deploying your index:
 6. **Get links**
    - "📂 Open in Google Drive" - View in GDrive web interface
    - "🎬 Direct Link (Stream)" - Direct streaming/download URL
+
+### Web Application
+
+#### Registration & Login
+
+1. **Register a new account**
+   - Visit `https://your-app.herokuapp.com/register`
+   - Enter username and password
+   - Use invite code: **Kaveesha**
+   - Submit to create account
+
+2. **Login**
+   - Visit `https://your-app.herokuapp.com/login`
+   - Enter your username and password
+   - Access your personal dashboard
+
+#### Adding Torrents
+
+1. From your dashboard, click **"Add New Torrent"**
+2. Paste magnet link or upload .torrent file
+3. Submit and the bot will process it automatically
+4. Track progress in your dashboard
+
+#### Watching Videos
+
+**Option 1: Online Player (Built-in)**
+1. Click on any torrent from your dashboard
+2. Select a video file
+3. Click **"Watch Online"**
+4. Video.js player loads with:
+   - Play/pause controls
+   - Volume control
+   - Fullscreen mode
+   - Quality selection
+   - Playback speed control
+   - Resume from last position
+
+**Option 2: External Players**
+1. From the player page, choose your preferred player:
+   - **VLC** - Best for desktop streaming
+   - **MX Player** - Android video player
+   - **PotPlayer** - Windows media player
+   - **Copy Link** - For any other player
+2. Click the button to open in external app
+3. Link opens directly in the player
+
+#### Admin Panel
+
+Access: `https://your-app.herokuapp.com/admin` (Admin login required)
+
+**User Management:**
+- View all registered users
+- Delete user accounts
+- Reset user passwords
+- See user statistics
+
+**Invite Code Management:**
+- Create new invite codes
+- Set usage limits (single-use or unlimited)
+- Activate/deactivate codes
+- View invite code usage stats
+
+**Creating New Invite Codes:**
+1. Scroll to "Create New Invite Code" section
+2. Enter the code (e.g., "NEWCODE2024")
+3. Set max uses (0 = unlimited)
+4. Check "Active" to enable immediately
+5. Click "Create Code"
 
 ## How It Works
 
@@ -272,19 +407,48 @@ After deploying your index:
 - Status tracking (Queued → Downloading → Uploading → Completed)
 - Automatic cleanup of old jobs
 
+### Web Application Architecture
+
+**Frontend:**
+- Bootstrap 5 responsive design
+- Video.js for HTML5 video playback
+- AJAX for real-time torrent status updates
+- LocalStorage for resume playback position
+
+**Backend:**
+- Flask web framework
+- SQLAlchemy ORM with PostgreSQL
+- Flask-Login for session management
+- Password hashing with werkzeug.security
+
+**Database Models:**
+- **User**: Authentication and authorization
+- **Torrent**: Torrent metadata and tracking
+- **TorrentFile**: Individual files within torrents
+- **InviteCode**: Registration access control
+
+**Security:**
+- Password hashing (pbkdf2:sha256)
+- Session-based authentication
+- CSRF protection via Flask-WTF
+- Admin-only route protection
+- Invite code validation
+
 ## Limitations on Heroku
 
 ### Free/Eco Dynos
 - **Ephemeral filesystem**: All downloads are temporary and deleted on restart
 - **Storage limit**: ~500MB available in `/tmp`
-- **Memory**: 512MB RAM on eco dynos
+- **Memory**: 512MB RAM per dyno (web + worker = 2 dynos)
 - **Monthly hours**: Limited free dyno hours
+- **Database**: PostgreSQL essential-0 addon included
 
 ### Recommendations
 - Keep `MAX_DOWNLOAD_SIZE` under 500MB for free dynos
 - Use paid dynos for larger files
 - Set `CONCURRENT_DOWNLOADS` to 1-2 on free dynos
-- Consider alternative hosting for heavy usage
+- Consider upgrading to Hobby dynos ($7/month each) for better performance
+- Monitor dyno hours to avoid service interruptions
 
 ## Troubleshooting
 
@@ -314,6 +478,35 @@ After deploying your index:
 - Verify `INDEX_BASE_URL` is correct
 - Check index deployment is working
 - Ensure file paths match between bot and index
+
+### Web app issues
+
+**Can't access web app:**
+- Check web dyno is running: `heroku ps`
+- Verify app URL is correct
+- Check logs: `heroku logs --tail --dyno web`
+
+**Can't login/register:**
+- Verify invite code "Kaveesha" is active
+- Check database is connected (PostgreSQL addon)
+- Clear browser cookies and try again
+- Check logs for database errors
+
+**Admin panel not accessible:**
+- Ensure using admin credentials: **MonsterZeroX** / **Kaveesha@2005**
+- Try logging out and logging in again
+- Check if `/admin` route is accessible
+
+**Video player not working:**
+- Verify `INDEX_BASE_URL` is set correctly
+- Check if index URL returns video file
+- Try external player instead
+- Check browser console for errors
+
+**Database errors:**
+- Run migrations: Check Heroku logs for database initialization
+- Verify PostgreSQL addon is provisioned
+- Check `DATABASE_URL` environment variable
 
 ## Advanced Customization
 
@@ -351,6 +544,24 @@ Seed torrents after download:
 heroku config:set SEED_TIME="300"  # 5 minutes
 ```
 
+### Web Application Customization
+
+**Change default invite code:**
+1. Login as admin
+2. Go to `/admin`
+3. Deactivate "Kaveesha" code
+4. Create new invite code with your preferred name
+
+**Create multiple admin accounts:**
+- Currently requires database modification
+- Use admin panel to reset any user's password
+- Manually set `is_admin=True` via database console
+
+**Customize branding:**
+- Edit `webapp/templates/base.html` - Update title and navbar
+- Edit `webapp/static/style.css` - Modify colors and styling
+- Redeploy to Heroku
+
 ## Contributing
 
 Contributions are welcome! Please:
@@ -375,11 +586,39 @@ This bot is for educational purposes and personal use only. Users are responsibl
 - Refer to [libtorrent docs](https://www.libtorrent.org/reference.html) for torrent-related issues
 - Check [rclone docs](https://rclone.org/docs/) for upload issues
 
+## Technology Stack
+
+**Backend:**
+- Python 3.11
+- Flask (Web framework)
+- python-telegram-bot (Bot framework)
+- SQLAlchemy (ORM)
+- Flask-Login (Authentication)
+- libtorrent (Torrent client)
+- rclone (Cloud storage sync)
+
+**Frontend:**
+- Bootstrap 5 (UI framework)
+- Video.js (Video player)
+- JavaScript (AJAX, LocalStorage)
+
+**Database:**
+- PostgreSQL (Production - Heroku)
+- SQLite (Local development)
+
+**Deployment:**
+- Heroku (Platform)
+- Gunicorn (WSGI server)
+- heroku-buildpack-apt (System packages)
+
 ## Credits
 
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Telegram Bot API wrapper
 - [libtorrent](https://www.libtorrent.org/) - BitTorrent library
 - [rclone](https://rclone.org/) - Cloud storage sync tool
+- [Flask](https://flask.palletsprojects.com/) - Web framework
+- [Bootstrap](https://getbootstrap.com/) - Frontend framework
+- [Video.js](https://videojs.com/) - HTML5 video player
 - Inspired by [TorToolkit-Telegram](https://github.com/yash-dk/TorToolkit-Telegram)
 
 ---
