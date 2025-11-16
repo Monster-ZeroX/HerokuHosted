@@ -13,6 +13,70 @@
     </div>
 </div>
 
+<!-- Usage Stats Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="mb-3"><i class="bi bi-bar-chart"></i> Download Usage</h5>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
+                            <div style="font-size: 1.8rem; font-weight: 600; color: var(--apple-blue);">
+                                {{ usage_stats.daily_usage_gb }}
+                            </div>
+                            <div style="font-size: 0.9rem; color: var(--apple-gray);">Daily Usage (GB)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
+                            <div style="font-size: 1.8rem; font-weight: 600; color: var(--apple-green);">
+                                {{ usage_stats.total_usage_gb }}
+                            </div>
+                            <div style="font-size: 0.9rem; color: var(--apple-gray);">Total Usage (GB)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
+                            <div style="font-size: 1.8rem; font-weight: 600; color: var(--apple-orange);">
+                                {% if usage_stats.daily_limit_gb %}
+                                    {{ usage_stats.daily_limit_gb }}
+                                {% else %}
+                                    <i class="bi bi-infinity"></i>
+                                {% endif %}
+                            </div>
+                            <div style="font-size: 0.9rem; color: var(--apple-gray);">Daily Limit (GB)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
+                            <div style="font-size: 1.8rem; font-weight: 600; color: var(--apple-red);">
+                                {% if usage_stats.remaining_quota_gb is not none %}
+                                    {{ usage_stats.remaining_quota_gb }}
+                                {% else %}
+                                    <i class="bi bi-infinity"></i>
+                                {% endif %}
+                            </div>
+                            <div style="font-size: 0.9rem; color: var(--apple-gray);">Remaining (GB)</div>
+                        </div>
+                    </div>
+                </div>
+                {% if usage_stats.has_limit %}
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small style="color: var(--apple-gray);">Quota Usage Today</small>
+                        <small style="color: var(--apple-gray);">{{ '%.1f' % (usage_stats.daily_usage_gb / usage_stats.daily_limit_gb * 100) if usage_stats.daily_limit_gb else 0 }}%</small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar" style="width: {{ (usage_stats.daily_usage_gb / usage_stats.daily_limit_gb * 100) if usage_stats.daily_limit_gb else 0 }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if torrents %}
 <div class="row g-4">
     {% for torrent in torrents %}

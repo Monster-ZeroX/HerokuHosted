@@ -72,6 +72,11 @@ def register():
         # Create user
         user = User(username=username)
         user.set_password(password)
+
+        # Apply download limit from invite code
+        if invite.daily_download_limit:
+            user.daily_limit = invite.daily_download_limit
+
         db.session.add(user)
 
         # Use invite code
@@ -123,8 +128,21 @@ def logout():
 @login_required
 def dashboard():
     """User dashboard."""
+    # Reset daily usage if needed
+    current_user.reset_daily_usage_if_needed()
+
     torrents = Torrent.query.filter_by(user_id=current_user.id).order_by(Torrent.created_at.desc()).all()
-    return render_template('dashboard.html', torrents=torrents)
+
+    # Calculate usage stats
+    usage_stats = {
+        'daily_usage_gb': current_user.get_daily_usage_gb(),
+        'total_usage_gb': current_user.get_total_usage_gb(),
+        'daily_limit_gb': current_user.get_daily_limit_gb(),
+        'remaining_quota_gb': current_user.get_remaining_quota_gb(),
+        'has_limit': current_user.daily_limit > 0 if current_user.daily_limit else False
+    }
+
+    return render_template('dashboard.html', torrents=torrents, usage_stats=usage_stats)
 
 
 @app.route('/add-torrent', methods=['GET', 'POST'])
@@ -272,6 +290,34 @@ def admin_reset_password(user_id):
     return redirect(url_for('admin_panel'))
 
 
+@app.route('/admin/user/<int:user_id>/set-limit', methods=['POST'])
+@login_required
+def admin_set_user_limit(user_id):
+    """Set user download limit (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied', 'danger')
+        return redirect(url_for('dashboard'))
+
+    user = User.query.get_or_404(user_id)
+    daily_limit_gb = request.form.get('daily_limit_gb', '').strip()
+
+    # Convert GB to bytes
+    if not daily_limit_gb or daily_limit_gb == '0':
+        user.daily_limit = 0  # Unlimited
+        flash(f'Download limit removed for {user.username} (Unlimited)', 'success')
+    else:
+        try:
+            daily_limit_bytes = int(float(daily_limit_gb) * (1024 ** 3))
+            user.daily_limit = daily_limit_bytes
+            flash(f'Daily limit set to {daily_limit_gb} GB for {user.username}', 'success')
+        except ValueError:
+            flash('Invalid limit value', 'danger')
+            return redirect(url_for('admin_panel'))
+
+    db.session.commit()
+    return redirect(url_for('admin_panel'))
+
+
 @app.route('/admin/invite-code/create', methods=['POST'])
 @login_required
 def admin_create_invite():
@@ -282,6 +328,7 @@ def admin_create_invite():
 
     code = request.form.get('code')
     max_uses = int(request.form.get('max_uses', 1))
+    daily_limit_gb = request.form.get('daily_limit_gb', '').strip()
 
     if not code:
         flash('Code is required', 'danger')
@@ -292,7 +339,21 @@ def admin_create_invite():
         flash('Code already exists', 'danger')
         return redirect(url_for('admin_panel'))
 
-    invite = InviteCode(code=code, max_uses=max_uses, created_by=current_user.id)
+    # Convert GB to bytes for daily limit
+    daily_limit_bytes = 0
+    if daily_limit_gb:
+        try:
+            daily_limit_bytes = int(float(daily_limit_gb) * (1024 ** 3))
+        except ValueError:
+            flash('Invalid daily limit value', 'danger')
+            return redirect(url_for('admin_panel'))
+
+    invite = InviteCode(
+        code=code,
+        max_uses=max_uses,
+        daily_download_limit=daily_limit_bytes,
+        created_by=current_user.id
+    )
     db.session.add(invite)
     db.session.commit()
 

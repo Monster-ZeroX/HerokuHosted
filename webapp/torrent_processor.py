@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from config import settings
 from torrent import TorrentClient
 from drive import RcloneManager
-from webapp.models import Torrent, TorrentFile, db
+from webapp.models import Torrent, TorrentFile, User, db
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,16 @@ class WebTorrentProcessor:
                 self.processing_hashes.discard(torrent_id)
                 return
 
+            # Check if user can download (quota check)
+            user = torrent_record.user
+            if not user.can_download(0):  # Initial check, will check actual size later
+                logger.warning(f"User {user.username} has exceeded daily download limit")
+                torrent_record.status = 'failed'
+                torrent_record.error_message = 'Daily download limit exceeded'
+                db.session.commit()
+                self.processing_hashes.discard(torrent_id)
+                return
+
             magnet_link = torrent_record.magnet_link
 
             try:
@@ -90,6 +100,16 @@ class WebTorrentProcessor:
                 db.session.commit()
 
                 torrent_info = await self.torrent_client.get_torrent_info(magnet_link)
+
+                # Check if user can download this size
+                if not user.can_download(torrent_info.total_size):
+                    remaining = user.get_remaining_quota_gb()
+                    logger.warning(f"User {user.username} cannot download {torrent_info.total_size} bytes (remaining: {remaining} GB)")
+                    torrent_record.status = 'failed'
+                    torrent_record.error_message = f'Insufficient quota. Remaining: {remaining} GB'
+                    db.session.commit()
+                    self.processing_hashes.discard(torrent_id)
+                    return
 
                 # Update torrent record with metadata
                 torrent_record.info_hash = torrent_info.info_hash
@@ -118,7 +138,13 @@ class WebTorrentProcessor:
                 # Step 6: Create file records
                 await self.create_file_records(torrent_record, download_path, torrent_info.name)
 
-                # Step 7: Mark as completed
+                # Step 7: Add download usage to user
+                with app.app_context():
+                    user = User.query.get(torrent_record.user_id)
+                    if user:
+                        user.add_download_usage(torrent_info.total_size)
+
+                # Step 8: Mark as completed
                 torrent_record.status = 'completed'
                 torrent_record.progress = 100.0
                 torrent_record.gdrive_link = gdrive_folder_link
