@@ -164,7 +164,11 @@ def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -
 
 
 def fetch_payment_status(payment_id: str) -> Optional[str]:
-    """Fetch payment status from Genie (returns paid/pending/failed)."""
+    """Fetch payment status from Genie (returns paid/pending/failed).
+
+    Genie can return either `status` or `state` depending on the endpoint and environment.
+    Normalise both so we can reliably decide when to upgrade a user.
+    """
     headers = _genie_headers()
     if not headers or not payment_id:
         return None
@@ -176,13 +180,47 @@ def fetch_payment_status(payment_id: str) -> Optional[str]:
         response = requests.get(status_url, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json() or {}
+
+        # Genie uses `state` (e.g., COMPLETED) in many responses; `status` may also appear
+        # in some environments. Prefer state, then status, and normalise to lower case.
+        state = data.get('state') or (data.get('data') or {}).get('state')
         status = data.get('status') or (data.get('data') or {}).get('status')
-        if isinstance(status, str):
-            return status.lower()
-        return None
+
+        normalized = None
+        for candidate in (state, status):
+            if isinstance(candidate, str) and candidate.strip():
+                normalized = candidate.strip().lower()
+                break
+
+        if not normalized:
+            return None
+
+        if normalized in ('completed', 'paid', 'success', 'succeeded', 'confirmed'):
+            return 'paid'
+        if normalized in ('failed', 'canceled', 'cancelled', 'declined', 'voided'):
+            return 'failed'
+        return 'pending'
     except Exception as exc:
         app.logger.error(f"Failed to verify payment status: {exc}")
         return None
+
+
+def refresh_pending_transactions(user: User):
+    """Recheck any pending Genie payments for the user and apply upgrades when paid."""
+    pending = PaymentTransaction.query.filter_by(user_id=user.id, status='pending').all()
+    updated = False
+    for txn in pending:
+        if not txn.gateway_payment_id:
+            continue
+        status = fetch_payment_status(txn.gateway_payment_id)
+        if status == 'paid':
+            txn.mark_paid()
+            apply_paid_plan(txn.user, txn.plan_key)
+            updated = True
+        elif status == 'failed':
+            txn.mark_failed('gateway_failed')
+    if updated:
+        db.session.commit()
 
 
 def apply_paid_plan(user: User, plan_key: str):
@@ -480,6 +518,7 @@ def logout():
 @login_required
 def upgrade():
     current_user.reset_daily_usage_if_needed()
+    refresh_pending_transactions(current_user)
 
     recent_txns = PaymentTransaction.query.filter_by(user_id=current_user.id).order_by(
         PaymentTransaction.created_at.desc()
@@ -566,13 +605,13 @@ def upgrade_confirm():
         db.session.commit()
 
     status = fetch_payment_status(txn.gateway_payment_id or payment_id)
-    if status in ('paid', 'success', 'completed'):
+    if status == 'paid':
         txn.mark_paid()
         apply_paid_plan(current_user, txn.plan_key)
         flash('Payment received! Your plan has been upgraded.', 'success')
         return redirect(url_for('dashboard'))
 
-    if status in ('failed', 'canceled', 'cancelled'):
+    if status == 'failed':
         txn.mark_failed(f"status={status}")
         flash('Payment failed or was canceled.', 'danger')
         return redirect(url_for('upgrade'))
@@ -588,6 +627,7 @@ def dashboard():
     """User dashboard."""
     # Reset daily usage if needed
     current_user.reset_daily_usage_if_needed()
+    refresh_pending_transactions(current_user)
 
     torrents = Torrent.query.filter_by(user_id=current_user.id).order_by(Torrent.created_at.desc()).all()
 
@@ -1099,7 +1139,7 @@ def genie_webhook():
 
     reference = data.get('reference') or (data.get('metadata') or {}).get('reference')
     payment_id = data.get('payment_id') or data.get('id')
-    status = (data.get('status') or '').lower()
+    status = (data.get('status') or data.get('state') or '').lower()
     plan_key = (data.get('metadata') or {}).get('plan_key')
 
     txn = None
@@ -1115,7 +1155,7 @@ def genie_webhook():
         txn.gateway_payment_id = str(payment_id)
         db.session.commit()
 
-    if status in ('paid', 'success', 'completed'):
+    if status in ('paid', 'success', 'completed', 'succeeded', 'confirmed'):
         txn.mark_paid()
         apply_paid_plan(txn.user, plan_key or txn.plan_key)
         return jsonify({'status': 'upgraded'}), 200
