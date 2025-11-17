@@ -37,10 +37,16 @@
                         <li class="mb-2"><i class="bi bi-check2 text-success"></i> {{ plan.label }}</li>
                         <li class="mb-2"><i class="bi bi-check2 text-success"></i> Valid for 30 days (no auto-renew)</li>
                     </ul>
+                    {% set is_current = current_plan and current_plan == key %}
                     <form method="post" action="{{ url_for('start_upgrade') }}">
                         <input type="hidden" name="plan" value="{{ key }}" />
-                        <button type="submit" class="btn btn-primary w-100" {% if not gateway_ready %}disabled{% endif %}>
-                            Upgrade to {{ plan.label }}
+                        <button type="submit" class="btn w-100 {% if is_current %}btn-success{% else %}btn-primary{% endif %}"
+                            {% if not gateway_ready or is_current %}disabled{% endif %}>
+                            {% if is_current %}
+                                Current plan
+                            {% else %}
+                                Upgrade to {{ plan.label }}
+                            {% endif %}
                         </button>
                     </form>
                 </div>

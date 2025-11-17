@@ -546,12 +546,17 @@ def upgrade():
         for key, details in PAID_PLANS.items()
     }
 
+    active_plan = None
+    if current_user.subscription_plan and current_user.subscription_expires_at:
+        if current_user.subscription_expires_at > datetime.utcnow():
+            active_plan = current_user.subscription_plan
+
     return render_template(
         'upgrade.html',
         plans=plan_context,
         currency=GENIE_CURRENCY,
         gateway_ready=bool(GENIE_API_KEY and GENIE_MERCHANT_ID),
-        current_plan=current_user.subscription_plan,
+        current_plan=active_plan,
         expires_at=current_user.subscription_expires_at,
         base_limit_gb=current_user.base_daily_limit / (1024 ** 3) if current_user.base_daily_limit else None,
         current_limit_gb=current_user.get_daily_limit_gb(),
