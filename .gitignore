@@ -58,3 +58,5 @@ Thumbs.db
 # Node/Next build artifacts
 frontend/node_modules/
 frontend/.next/
+# Allow checked-in frontend helpers
+!frontend/lib/

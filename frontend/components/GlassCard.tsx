@@ -9,13 +9,13 @@ interface GlassCardProps {
 
 export function GlassCard({ title, icon, action, children }: GlassCardProps) {
   return (
-    <div className="glass" style={{ padding: '20px 22px' }}>
+    <div className="glass" style={{ padding: '22px 24px', borderImage: 'linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0)) 1' }}>
       {(title || action) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 12 }}>
           {title && (
-            <h3 className="card-title">
+            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
               {icon && <span className="icon">{icon}</span>}
-              {title}
+              <span>{title}</span>
             </h3>
           )}
           {action}

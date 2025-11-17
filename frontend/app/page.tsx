@@ -9,7 +9,7 @@ export default function HomePage() {
       <div className="grid two">
         <GlassCard title="Realtime Speed" icon="⚡">
           <div className="metric-value">Live download + ETA</div>
-          <p className="metric-label">Surfaced directly from the Flask API for precision reads.</p>
+          <p className="metric-label">Pulls from the Flask API with second-level polling to keep numbers fresh.</p>
         </GlassCard>
         <GlassCard title="Invite Control" icon="🔑">
           <div className="metric-value">Reactivate & tune limits</div>
@@ -17,10 +17,23 @@ export default function HomePage() {
         </GlassCard>
       </div>
       <div style={{ marginTop: 22 }}>
-        <GlassCard title="Get started" icon="🎬" action={<Link className="button-primary" href="/dashboard">Open dashboard</Link>}>
+        <GlassCard
+          title="Go glassy"
+          icon="🪩"
+          action={
+            <div className="hero-actions">
+              <Link className="button-primary" href="/dashboard">
+                Open dashboard
+              </Link>
+              <Link className="button-ghost" href="/torrents/1">
+                View example torrent
+              </Link>
+            </div>
+          }
+        >
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            Switch to the premium Liquid Glass interface backed by Next.js while the Flask API powers downloads and TMDB
-            metadata for movie torrents.
+            Switch to the liquid-glass interface backed by Next.js. The right rail in torrent details lights up with TMDB metadata when
+            movies are detected, leaving other torrent types clean.
           </p>
         </GlassCard>
       </div>

@@ -25,8 +25,21 @@ export default function DashboardPage() {
   const { data: torrents } = useSWR('torrents', fetchTorrents, { refreshInterval: 5000 });
 
   return (
-    <div className="grid" style={{ gap: 16 }}>
-      <GlassCard title={`Hi ${session?.username || 'there'}`} icon="🛰️" action={<Link className="button-ghost" href="/">Home</Link>}>
+    <div className="grid" style={{ gap: 18 }}>
+      <GlassCard
+        title={`Hi ${session?.username || 'there'}`}
+        icon="🛰️"
+        action={
+          <div className="hero-actions">
+            <Link className="button-ghost" href="/">
+              Home
+            </Link>
+            <Link className="button-primary" href="/torrents/1">
+              Try details view
+            </Link>
+          </div>
+        }
+      >
         <div className="grid two">
           <div>
             <div className="metric-value">{session?.daily_usage_gb ?? '–'} GB</div>
