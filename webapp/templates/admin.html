@@ -56,6 +56,7 @@
                         <th>Daily Usage</th>
                         <th>Total Usage</th>
                         <th>Daily Limit</th>
+                        <th>Tier</th>
                         <th>Created</th>
                         <th>Last Login</th>
                         <th>Actions</th>
@@ -90,6 +91,16 @@
                             <span style="color: var(--apple-orange); font-weight: 500;">{{ user.get_daily_limit_gb() }} GB</span>
                             {% else %}
                             <span class="text-muted"><i class="bi bi-infinity"></i> Unlimited</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_paid %}
+                            <span class="badge bg-success">Paid</span>
+                            {% if user.subscription_expires_at %}
+                            <div class="small text-bright-soft">Expires {{ user.subscription_expires_at.strftime('%Y-%m-%d') }}</div>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge bg-secondary">Free</span>
                             {% endif %}
                         </td>
                         <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>

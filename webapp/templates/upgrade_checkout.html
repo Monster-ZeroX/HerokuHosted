@@ -9,13 +9,13 @@
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <p class="text-muted mb-1 small">Reference</p>
-                            <div class="fw-semibold">{{ txn.reference }}</div>
+                            <p class="text-bright-soft mb-1 small">Reference</p>
+                            <div class="fw-semibold text-bright">{{ txn.reference }}</div>
                         </div>
                         <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">{{ plan.label }}</span>
                     </div>
                     <h3 class="accent-heading fw-bold mb-2">{{ plan.label }}</h3>
-                    <p class="mb-3 text-muted">{{ currency }} {{ plan.price | round(0, 'floor') | int }} &middot; 30-day access</p>
+                    <p class="mb-3 text-bright-soft">{{ currency }} {{ plan.price | round(0, 'floor') | int }} &middot; 30-day access</p>
 
                     <div class="alert alert-info d-flex align-items-center" role="alert">
                         <i class="bi bi-shield-check fs-4 me-3"></i>
@@ -26,13 +26,13 @@
 
                     <div class="d-flex gap-2 align-items-center mb-3">
                         <button class="btn btn-primary" id="retry-open">Open payment link</button>
-                        <div class="small text-muted" id="status-label">Waiting for payment...</div>
+                        <div class="small text-bright-soft" id="status-label">Waiting for payment...</div>
                     </div>
 
                     <div class="progress mb-2" style="height: 6px;">
                         <div id="status-progress" class="progress-bar bg-success" role="progressbar" style="width: 25%"></div>
                     </div>
-                    <p class="small text-muted mb-0">You'll be redirected once the payment is confirmed.</p>
+                    <p class="small text-bright-soft mb-0">You'll be redirected once the payment is confirmed.</p>
                 </div>
             </div>
         </div>

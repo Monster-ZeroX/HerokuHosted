@@ -124,6 +124,19 @@ class User(UserMixin, db.Model):
         self.daily_limit = new_limit_bytes
         db.session.commit()
 
+    @property
+    def is_paid(self) -> bool:
+        """Return True when the user currently has an active paid subscription."""
+        self.ensure_subscription_is_current()
+
+        if not self.subscription_plan:
+            return False
+
+        if self.subscription_expires_at and datetime.utcnow() > self.subscription_expires_at:
+            return False
+
+        return True
+
     def __repr__(self):
         return f'<User {self.username}>'
 
