@@ -81,6 +81,26 @@ def run_migration():
         except Exception as e:
             print(f"  - daily_download_limit: {e}")
 
+        print("\nAdding columns to torrents table...")
+
+        try:
+            conn.execute(text("""
+                ALTER TABLE torrents
+                ADD COLUMN IF NOT EXISTS download_rate FLOAT DEFAULT 0
+            """))
+            print("  ✓ Added download_rate column")
+        except Exception as e:
+            print(f"  - download_rate: {e}")
+
+        try:
+            conn.execute(text("""
+                ALTER TABLE torrents
+                ADD COLUMN IF NOT EXISTS eta_seconds INTEGER
+            """))
+            print("  ✓ Added eta_seconds column")
+        except Exception as e:
+            print(f"  - eta_seconds: {e}")
+
         conn.commit()
         print("\n✓ Migration completed successfully!")
 

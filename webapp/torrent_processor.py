@@ -318,6 +318,8 @@ class WebTorrentProcessor:
                 rec = Torrent.query.get(torrent_record.id)
                 if rec:
                     rec.progress = progress.progress
+                    rec.download_rate = progress.download_rate
+                    rec.eta_seconds = progress.eta
                     db.session.commit()
 
         # Download all files

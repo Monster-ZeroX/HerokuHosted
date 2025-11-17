@@ -115,6 +115,8 @@ class Torrent(db.Model):
     gdrive_path = db.Column(db.String(500))
     gdrive_link = db.Column(db.String(500))
     index_link = db.Column(db.String(500))
+    download_rate = db.Column(db.Float, default=0.0)
+    eta_seconds = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
     error_message = db.Column(db.Text)

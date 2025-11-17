@@ -228,17 +228,55 @@
                         </td>
                         <td>{{ invite.created_at.strftime('%Y-%m-%d') }}</td>
                         <td>
-                            <form method="POST" action="{{ url_for('admin_toggle_invite', invite_id=invite.id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    {% if invite.is_active %}
-                                    <i class="bi bi-pause-circle"></i> Deactivate
-                                    {% else %}
-                                    <i class="bi bi-play-circle"></i> Activate
-                                    {% endif %}
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+                                        data-bs-target="#editInvite{{ invite.id }}">
+                                    <i class="bi bi-pencil"></i> Edit
                                 </button>
-                            </form>
+                                <form method="POST" action="{{ url_for('admin_toggle_invite', invite_id=invite.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary">
+                                        {% if invite.is_active %}
+                                        <i class="bi bi-pause-circle"></i> Deactivate
+                                        {% else %}
+                                        <i class="bi bi-play-circle"></i> Activate
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
+                    <div class="modal fade" id="editInvite{{ invite.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content" style="border-radius: 16px;">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Update Invite {{ invite.code }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="POST" action="{{ url_for('admin_update_invite', invite_id=invite.id) }}">
+                                    <div class="modal-body">
+                                        <div class="mb-3 form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="inviteActive{{ invite.id }}" name="is_active" {% if invite.is_active %}checked{% endif %}>
+                                            <label class="form-check-label" for="inviteActive{{ invite.id }}">Invite is active</label>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Max Uses (-1 for unlimited)</label>
+                                            <input type="number" class="form-control" name="max_uses" value="{{ invite.max_uses }}" min="-1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Daily Download Limit (GB)</label>
+                                            <input type="number" class="form-control" name="daily_limit_gb" step="0.1" min="0"
+                                                   value="{{ invite.get_limit_gb() or 0 }}">
+                                            <small class="text-muted">0 for unlimited downloads</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                     {% endfor %}
                 </tbody>
             </table>

@@ -2,6 +2,7 @@
 Flask web application for Torrent to Google Drive.
 """
 import os
+import requests
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -23,6 +24,27 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
 init_db(app)
+
+
+def format_eta(seconds):
+    """Convert seconds to human readable ETA."""
+    if seconds is None or seconds < 0:
+        return None
+    minutes, sec = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {sec}s"
+    return f"{sec}s"
+
+
+@app.context_processor
+def inject_formatters():
+    return {
+        'format_size': format_size,
+        'format_eta': format_eta
+    }
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -248,6 +270,39 @@ def search_torrents_page():
                          showing_count=len(results))
 
 
+def get_tmdb_movie_details(title: str):
+    """Fetch movie metadata from TMDB."""
+    api_key = os.environ.get('TMDB_API_KEY')
+    if not api_key or not title:
+        return None
+
+    try:
+        response = requests.get(
+            'https://api.themoviedb.org/3/search/movie',
+            params={'api_key': api_key, 'query': title, 'include_adult': False},
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not data.get('results'):
+            return None
+
+        movie = data['results'][0]
+        if not movie:
+            return None
+
+        poster_path = movie.get('poster_path')
+        return {
+            'title': movie.get('title'),
+            'overview': movie.get('overview'),
+            'rating': movie.get('vote_average'),
+            'poster_url': f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None,
+            'release_date': movie.get('release_date')
+        }
+    except Exception:
+        return None
+
+
 @app.route('/torrent/<int:torrent_id>')
 @login_required
 def torrent_detail(torrent_id):
@@ -259,7 +314,16 @@ def torrent_detail(torrent_id):
         flash('Access denied', 'danger')
         return redirect(url_for('dashboard'))
 
-    return render_template('torrent_detail.html', torrent=torrent)
+    is_movie = False
+    if torrent.files:
+        is_movie = any(
+            file.file_path.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.wmv'))
+            for file in torrent.files
+        )
+
+    tmdb_info = get_tmdb_movie_details(torrent.name) if is_movie else None
+
+    return render_template('torrent_detail.html', torrent=torrent, tmdb_info=tmdb_info)
 
 
 @app.route('/torrent/<int:torrent_id>/delete', methods=['POST'])
@@ -278,6 +342,13 @@ def delete_torrent(torrent_id):
 
     flash('Torrent deleted', 'success')
     return redirect(url_for('dashboard'))
+
+
+@app.route('/report-problem')
+@login_required
+def report_problem():
+    """Simple contact page for reporting issues."""
+    return render_template('report_problem.html')
 
 
 @app.route('/player/<int:file_id>')
@@ -485,6 +556,37 @@ def admin_toggle_invite(invite_id):
 
     status = 'activated' if invite.is_active else 'deactivated'
     flash(f'Invite code {status}', 'success')
+    return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/invite-code/<int:invite_id>/update', methods=['POST'])
+@login_required
+def admin_update_invite(invite_id):
+    """Update invite code limits and activation (admin only)."""
+    if not current_user.is_admin:
+        flash('Access denied', 'danger')
+        return redirect(url_for('dashboard'))
+
+    invite = InviteCode.query.get_or_404(invite_id)
+    max_uses = request.form.get('max_uses', '').strip()
+    daily_limit_gb = request.form.get('daily_limit_gb', '').strip()
+    is_active = request.form.get('is_active') == 'on'
+
+    try:
+        if max_uses:
+            invite.max_uses = int(max_uses)
+        invite.is_active = is_active
+
+        if daily_limit_gb == '' or daily_limit_gb == '0':
+            invite.daily_download_limit = 0
+        else:
+            invite.daily_download_limit = int(float(daily_limit_gb) * (1024 ** 3))
+
+        db.session.commit()
+        flash('Invite code updated', 'success')
+    except ValueError:
+        flash('Invalid values for invite code update', 'danger')
+
     return redirect(url_for('admin_panel'))
 
 
