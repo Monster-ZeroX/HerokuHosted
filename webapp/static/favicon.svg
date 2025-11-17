@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Cloud with upload arrow - representing torrent to drive -->
+  <defs>
+    <linearGradient id="cloudGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#007AFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00C7FF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Cloud shape -->
+  <path d="M 70 45 C 70 38 65 32 58 32 C 57 32 56 32.2 55 32.5 C 52 27 47 23 41 23 C 32 23 25 30 25 39 C 25 39.5 25 40 25.1 40.5 C 20 42 16 46.5 16 52 C 16 58.5 21 64 27 64 L 68 64 C 76 64 82 58 82 50 C 82 43.5 77 38 70 38 C 70 37 70 45 70 45 Z"
+        fill="url(#cloudGradient)"
+        stroke="#0051D5"
+        stroke-width="2"/>
+
+  <!-- Upward arrow (torrent upload to cloud) -->
+  <g transform="translate(50, 50)">
+    <!-- Arrow shaft -->
+    <rect x="-3" y="-5" width="6" height="20" fill="#FFFFFF" rx="2"/>
+
+    <!-- Arrow head -->
+    <path d="M 0 -10 L -8 0 L -3 0 L -3 5 L 3 5 L 3 0 L 8 0 Z"
+          fill="#FFFFFF"/>
+  </g>
+
+  <!-- Small torrent symbol (magnet) at bottom -->
+  <g transform="translate(50, 78)">
+    <circle cx="0" cy="0" r="6" fill="#34C759" stroke="#FFFFFF" stroke-width="1.5"/>
+    <path d="M -3 -2 L 0 2 L 3 -2" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

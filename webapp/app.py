@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime
 
 from webapp.models import db, User, Torrent, TorrentFile, InviteCode, init_db
+from webapp.torrent_search import search_torrents
 from torrent import TorrentClient, format_size
 from drive import RcloneManager
 from config import settings
@@ -182,6 +183,25 @@ def add_torrent():
             flash(f'Error adding torrent: {str(e)}', 'danger')
 
     return render_template('add_torrent.html')
+
+
+@app.route('/search-torrents', methods=['GET', 'POST'])
+@login_required
+def search_torrents_page():
+    """Search for torrents."""
+    results = []
+    query = ''
+
+    if request.method == 'POST':
+        query = request.form.get('query', '').strip()
+
+        if query:
+            try:
+                results = search_torrents(query, limit_per_source=15)
+            except Exception as e:
+                flash(f'Error searching torrents: {str(e)}', 'danger')
+
+    return render_template('search_torrents.html', results=results, query=query)
 
 
 @app.route('/torrent/<int:torrent_id>')
