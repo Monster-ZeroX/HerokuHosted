@@ -445,6 +445,50 @@ def admin_toggle_invite(invite_id):
     return redirect(url_for('admin_panel'))
 
 
+@app.route('/admin/empty-drive', methods=['POST'])
+@login_required
+def admin_empty_drive():
+    """Empty Google Drive folder (admin only - DANGER ZONE)."""
+    if not current_user.is_admin:
+        flash('Access denied', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Require confirmation via POST parameter
+    confirmation = request.form.get('confirmation', '').strip()
+    if confirmation != 'DELETE ALL FILES':
+        flash('Invalid confirmation. Please type "DELETE ALL FILES" to confirm.', 'danger')
+        return redirect(url_for('admin_panel'))
+
+    try:
+        # Import here to avoid circular imports
+        from drive import RcloneManager
+        import asyncio
+
+        rclone = RcloneManager()
+
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(rclone.empty_drive_folder())
+        loop.close()
+
+        if result['success']:
+            # Also delete all torrent records from database
+            deleted_count = Torrent.query.delete()
+            db.session.commit()
+
+            flash(f'✓ Drive folder emptied successfully! Deleted {deleted_count} torrent records.', 'success')
+            logger.info(f"Admin {current_user.username} emptied drive folder and deleted {deleted_count} torrent records")
+        else:
+            flash(f'Failed to empty drive: {result["message"]}', 'danger')
+
+    except Exception as e:
+        logger.error(f"Error emptying drive folder: {e}", exc_info=True)
+        flash(f'Error: {str(e)}', 'danger')
+
+    return redirect(url_for('admin_panel'))
+
+
 # API Routes
 @app.route('/api/torrent/<int:torrent_id>/status')
 @login_required

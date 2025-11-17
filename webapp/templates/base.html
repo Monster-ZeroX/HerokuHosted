@@ -38,6 +38,34 @@
             --apple-border: rgba(0, 0, 0, 0.06);
             --apple-shadow: rgba(0, 0, 0, 0.08);
             --apple-shadow-hover: rgba(0, 0, 0, 0.12);
+
+            /* Light mode colors */
+            --bg-primary: #FAFAFA;
+            --bg-secondary: #fff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6E6E73;
+            --border-color: rgba(0, 0, 0, 0.06);
+            --navbar-bg: rgba(255, 255, 255, 0.8);
+            --card-bg: #fff;
+            --input-bg: #fff;
+        }
+
+        [data-theme="dark"] {
+            --apple-gray-light: #2C2C2E;
+            --apple-gray-bg: #000000;
+            --apple-border: rgba(255, 255, 255, 0.1);
+            --apple-shadow: rgba(0, 0, 0, 0.3);
+            --apple-shadow-hover: rgba(0, 0, 0, 0.5);
+
+            /* Dark mode colors */
+            --bg-primary: #000000;
+            --bg-secondary: #1C1C1E;
+            --text-primary: #F5F5F7;
+            --text-secondary: #98989D;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --navbar-bg: rgba(28, 28, 30, 0.8);
+            --card-bg: #1C1C1E;
+            --input-bg: #2C2C2E;
         }
 
         * {
@@ -47,18 +75,19 @@
 
         body {
             min-height: 100vh;
-            background: var(--apple-gray-bg);
+            background: var(--bg-primary);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-            color: #1d1d1f;
+            color: var(--text-primary);
             font-size: 15px;
             line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .navbar {
-            background: rgba(255, 255, 255, 0.8) !important;
+            background: var(--navbar-bg) !important;
             backdrop-filter: saturate(180%) blur(20px);
             -webkit-backdrop-filter: saturate(180%) blur(20px);
-            border-bottom: 1px solid var(--apple-border);
+            border-bottom: 1px solid var(--border-color);
             box-shadow: none;
             padding: 0.8rem 0;
         }
@@ -66,12 +95,12 @@
         .navbar-brand {
             font-weight: 600;
             font-size: 18px;
-            color: #1d1d1f !important;
+            color: var(--text-primary) !important;
             letter-spacing: -0.3px;
         }
 
         .nav-link {
-            color: #1d1d1f !important;
+            color: var(--text-primary) !important;
             font-weight: 400;
             font-size: 15px;
             padding: 0.5rem 1rem !important;
@@ -81,12 +110,12 @@
 
         .nav-link:hover {
             background-color: var(--apple-gray-light);
-            color: #000 !important;
+            color: var(--text-primary) !important;
         }
 
         .card {
-            background: #fff;
-            border: 1px solid var(--apple-border);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
             box-shadow: 0 2px 8px var(--apple-shadow);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -263,19 +292,23 @@
         h1, h2, h3, h4, h5 {
             font-weight: 600;
             letter-spacing: -0.5px;
-            color: #1d1d1f;
+            color: var(--text-primary);
         }
 
         .text-white {
-            color: #1d1d1f !important;
+            color: var(--text-primary) !important;
+        }
+
+        .text-white-50 {
+            color: var(--text-secondary) !important;
         }
 
         footer {
             background: transparent;
-            color: var(--apple-gray);
+            color: var(--text-secondary);
             padding: 2rem 0;
             margin-top: 4rem;
-            border-top: 1px solid var(--apple-border);
+            border-top: 1px solid var(--border-color);
         }
 
         .dropdown-menu {
@@ -296,10 +329,12 @@
         }
 
         input, textarea, select {
-            border: 1.5px solid var(--apple-border);
+            border: 1.5px solid var(--border-color);
             border-radius: 10px;
             padding: 0.75rem 1rem;
             font-size: 15px;
+            background: var(--input-bg);
+            color: var(--text-primary);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
@@ -307,6 +342,22 @@
             border-color: var(--apple-blue);
             box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
             outline: none;
+        }
+
+        /* Theme toggle button */
+        .theme-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--apple-gray-light);
         }
 
         .spinner-border {
@@ -353,6 +404,11 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                            <i class="bi bi-moon-stars" id="themeIcon"></i>
+                        </button>
+                    </li>
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('dashboard') }}">
@@ -567,6 +623,72 @@
 
         // Export for use in other scripts
         window.NotificationManager = NotificationManager;
+
+        // Theme Toggle System
+        const ThemeManager = {
+            // Get current theme from localStorage or system preference
+            getTheme: function() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme) {
+                    return savedTheme;
+                }
+                // Check system preference
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    return 'dark';
+                }
+                return 'light';
+            },
+
+            // Set theme and save to localStorage
+            setTheme: function(theme) {
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    document.getElementById('themeIcon').className = 'bi bi-sun';
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    document.getElementById('themeIcon').className = 'bi bi-moon-stars';
+                }
+                localStorage.setItem('theme', theme);
+            },
+
+            // Toggle between light and dark
+            toggle: function() {
+                const currentTheme = this.getTheme();
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                this.setTheme(newTheme);
+            },
+
+            // Initialize theme on page load
+            init: function() {
+                const theme = this.getTheme();
+                this.setTheme(theme);
+            }
+        };
+
+        // Initialize theme as early as possible
+        ThemeManager.init();
+
+        // Handle theme toggle button click
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    ThemeManager.toggle();
+                });
+            }
+
+            // Listen for system theme changes
+            if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+                    if (!localStorage.getItem('theme')) {
+                        ThemeManager.setTheme(e.matches ? 'dark' : 'light');
+                    }
+                });
+            }
+        });
+
+        // Export for use in other scripts
+        window.ThemeManager = ThemeManager;
     </script>
     {% block extra_js %}{% endblock %}
 </body>

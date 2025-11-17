@@ -385,3 +385,52 @@ class RcloneManager:
 
         except Exception as e:
             logger.error(f"Error deleting: {e}")
+
+    async def empty_drive_folder(self) -> dict:
+        """
+        Empty the entire Google Drive base folder (admin only).
+
+        Returns:
+            Dict with success status and message
+        """
+        base_path = settings.get_gdrive_path("")
+
+        logger.warning(f"EMPTYING ENTIRE DRIVE FOLDER: {base_path}")
+
+        cmd = [
+            "rclone",
+            "delete",
+            base_path,
+            "--config", self.config_path,
+            "--rmdirs"  # Also remove empty directories
+        ]
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                logger.info(f"Successfully emptied drive folder: {base_path}")
+                return {
+                    'success': True,
+                    'message': 'Drive folder emptied successfully'
+                }
+            else:
+                error_msg = stderr.decode()
+                logger.error(f"Failed to empty drive folder: {error_msg}")
+                return {
+                    'success': False,
+                    'message': f'Failed to empty drive: {error_msg}'
+                }
+
+        except Exception as e:
+            logger.error(f"Error emptying drive folder: {e}")
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}'
+            }
