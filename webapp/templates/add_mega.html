@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="fw-bold"><i class="bi bi-cloud-download"></i> Add Mega.nz Download</h2>
+        <p style="color: var(--apple-gray);">Download files and folders from Mega.nz to Google Drive</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="card mb-4" style="background: linear-gradient(135deg, #007AFF 0%, #00C7FF 100%); border: none;">
+    <div class="card-body text-white">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="text-white mb-2"><i class="bi bi-info-circle"></i> Mega.nz Premium Download</h5>
+                <p class="mb-0" style="opacity: 0.9;">
+                    Download single files or entire folders from Mega.nz at premium speed.
+                    Files will be automatically uploaded to your Google Drive.
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <i class="bi bi-cloud-arrow-down" style="font-size: 4rem; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Mega Link Form -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Enter Mega.nz Link</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('add_mega') }}">
+            <div class="mb-4">
+                <label for="mega_link" class="form-label fw-semibold">Mega.nz URL</label>
+                <input type="url" class="form-control form-control-lg" id="mega_link" name="mega_link"
+                       placeholder="https://mega.nz/file/... or https://mega.nz/folder/..."
+                       required autofocus>
+                <div class="form-text">
+                    <i class="bi bi-lightbulb"></i> Supports both single files and entire folders
+                </div>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-cloud-arrow-down"></i> Add to Downloads
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Examples Card -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-question-circle"></i> Link Examples</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
+                    <h6 style="color: var(--apple-blue);"><i class="bi bi-file-earmark"></i> Single File</h6>
+                    <code style="font-size: 12px; word-break: break-all;">
+                        https://mega.nz/file/ABC123#key...
+                    </code>
+                    <p class="mb-0 mt-2" style="color: var(--apple-gray); font-size: 13px;">
+                        Downloads a single file
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
+                    <h6 style="color: var(--apple-green);"><i class="bi bi-folder"></i> Folder</h6>
+                    <code style="font-size: 12px; word-break: break-all;">
+                        https://mega.nz/folder/ABC123#key...
+                    </code>
+                    <p class="mb-0 mt-2" style="color: var(--apple-gray); font-size: 13px;">
+                        Downloads all files in the folder
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 p-3" style="background: rgba(52, 199, 89, 0.1); border-radius: 12px; border-left: 4px solid var(--apple-green);">
+            <strong style="color: var(--apple-green);"><i class="bi bi-check-circle"></i> Premium Features:</strong>
+            <ul class="mb-0 mt-2" style="color: var(--apple-gray);">
+                <li>High-speed downloads with premium account</li>
+                <li>No file size restrictions</li>
+                <li>Batch folder downloads</li>
+                <li>Automatic upload to Google Drive</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <a href="{{ url_for('search_torrents_page') }}" class="card text-decoration-none" style="transition: transform 0.2s;">
+            <div class="card-body text-center">
+                <i class="bi bi-search" style="font-size: 2rem; color: var(--apple-blue);"></i>
+                <h6 class="mt-2 mb-0">Search Torrents</h6>
+                <small style="color: var(--apple-gray);">Find and download torrents</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6">
+        <a href="{{ url_for('add_torrent') }}" class="card text-decoration-none" style="transition: transform 0.2s;">
+            <div class="card-body text-center">
+                <i class="bi bi-magnet" style="font-size: 2rem; color: var(--apple-orange);"></i>
+                <h6 class="mt-2 mb-0">Add Magnet Link</h6>
+                <small style="color: var(--apple-gray);">Add torrent by magnet link</small>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-control-lg {
+    border-radius: 12px;
+    padding: 15px 20px;
+    font-size: 1rem;
+    border: 2px solid var(--apple-border);
+    transition: all 0.3s;
+}
+
+.form-control-lg:focus {
+    border-color: var(--apple-blue);
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+}
+</style>
+{% endblock %}

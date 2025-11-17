@@ -104,7 +104,7 @@ class TorrentSearchEngine:
         return None
 
     def search_thepiratebay(self, query: str, limit: int = 20) -> List[TorrentResult]:
-        """Search ThePirateBay mirrors"""
+        """Search ThePirateBay using search.php API"""
         results = []
         mirrors = [
             'https://thepiratebay.org',
@@ -114,20 +114,47 @@ class TorrentSearchEngine:
 
         for mirror in mirrors:
             try:
-                search_url = f"{mirror}/search/{quote_plus(query)}/1/99/0"
+                # Use search.php API endpoint
+                search_url = f"{mirror}/search.php?q={quote_plus(query)}"
                 response = requests.get(search_url, headers=self.headers, timeout=self.timeout)
 
                 if response.status_code == 200:
                     soup = BeautifulSoup(response.text, 'html.parser')
-                    rows = soup.select('#searchResult tbody tr')[:limit]
+
+                    # Try multiple selectors for different TPB layouts
+                    rows = soup.select('table#searchResult tbody tr')
+                    if not rows:
+                        rows = soup.select('table tbody tr')
+                    if not rows:
+                        rows = soup.select('tr.list-entry')
+
+                    rows = rows[:limit]
 
                     for row in rows:
                         try:
+                            # Try multiple selectors for torrent name
                             name_elem = row.select_one('a.detLink')
+                            if not name_elem:
+                                name_elem = row.select_one('div.detName a')
+                            if not name_elem:
+                                name_elem = row.select_one('td:nth-of-type(2) a')
+
                             magnet_elem = row.select_one('a[href^="magnet:"]')
+
+                            # Get size from description
                             size_elem = row.select_one('font.detDesc')
-                            seeders_elem = row.select('td')[2] if len(row.select('td')) > 2 else None
-                            leechers_elem = row.select('td')[3] if len(row.select('td')) > 3 else None
+                            if not size_elem:
+                                size_elem = row.select_one('td.detDesc')
+
+                            # Get seeders and leechers
+                            seeders_elem = row.select_one('td[align="right"]')
+                            if not seeders_elem:
+                                tds = row.select('td')
+                                seeders_elem = tds[2] if len(tds) > 2 else None
+                                leechers_elem = tds[3] if len(tds) > 3 else None
+                            else:
+                                # Find leechers (next td)
+                                leechers_elem = seeders_elem.find_next_sibling('td')
 
                             if name_elem and magnet_elem:
                                 name = name_elem.text.strip()
@@ -136,12 +163,26 @@ class TorrentSearchEngine:
                                 # Parse size from description
                                 size = 'Unknown'
                                 if size_elem:
-                                    size_match = re.search(r'Size (\d+\.?\d*\s*[KMGT]iB)', size_elem.text)
+                                    size_text = size_elem.text
+                                    # Try different size patterns
+                                    size_match = re.search(r'Size[:\s]+(\d+\.?\d*\s*[KMGT]i?B)', size_text)
+                                    if not size_match:
+                                        size_match = re.search(r'(\d+\.?\d*\s*[KMGT]i?B)', size_text)
                                     if size_match:
                                         size = size_match.group(1)
 
-                                seeders = int(seeders_elem.text.strip()) if seeders_elem else 0
-                                leechers = int(leechers_elem.text.strip()) if leechers_elem else 0
+                                # Parse seeders and leechers
+                                try:
+                                    seeders = int(seeders_elem.text.strip()) if seeders_elem and seeders_elem.text.strip().isdigit() else 0
+                                    leechers = int(leechers_elem.text.strip()) if leechers_elem and leechers_elem.text.strip().isdigit() else 0
+                                except (ValueError, AttributeError):
+                                    seeders = 0
+                                    leechers = 0
+
+                                # Get detail page URL
+                                detail_url = name_elem.get('href', '')
+                                if detail_url and not detail_url.startswith('http'):
+                                    detail_url = mirror + detail_url
 
                                 results.append(TorrentResult(
                                     name=name,
@@ -150,13 +191,14 @@ class TorrentSearchEngine:
                                     seeders=seeders,
                                     leechers=leechers,
                                     source='ThePirateBay',
-                                    url=mirror + name_elem['href']
+                                    url=detail_url
                                 ))
                         except Exception as e:
                             logger.debug(f"Error parsing TPB result: {e}")
                             continue
 
                     if results:
+                        logger.info(f"Found {len(results)} results from {mirror}")
                         break  # Found working mirror
 
             except Exception as e:

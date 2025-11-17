@@ -12,6 +12,7 @@ from webapp.torrent_search import search_torrents
 from torrent import TorrentClient, format_size
 from drive import RcloneManager
 from config import settings
+from mega_downloader import MegaDownloader
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
@@ -249,6 +250,52 @@ def player(file_id):
         return redirect(url_for('dashboard'))
 
     return render_template('player.html', file=torrent_file, torrent=torrent)
+
+
+# Mega.nz Routes
+@app.route('/add-mega', methods=['GET', 'POST'])
+@login_required
+def add_mega():
+    """Add Mega.nz download."""
+    if request.method == 'POST':
+        mega_link = request.form.get('mega_link')
+
+        if not mega_link or 'mega.nz' not in mega_link.lower():
+            flash('Invalid Mega.nz link', 'danger')
+            return render_template('add_mega.html')
+
+        try:
+            # Initialize Mega downloader
+            mega = MegaDownloader()
+
+            # Get file/folder info
+            info = mega.get_file_info(mega_link)
+
+            # Check download quota
+            if not current_user.can_download(info['size']):
+                remaining = current_user.get_remaining_quota_gb()
+                flash(f'Download exceeds your daily quota. Remaining: {remaining} GB', 'danger')
+                return render_template('add_mega.html')
+
+            # Create torrent entry for Mega download
+            torrent = Torrent(
+                user_id=current_user.id,
+                name=info['name'],
+                info_hash=f"mega_{mega_link.split('/')[-1][:10]}",  # Pseudo hash for Mega
+                magnet_link=mega_link,
+                total_size=info['size'],
+                status='queued'
+            )
+            db.session.add(torrent)
+            db.session.commit()
+
+            flash('Mega.nz download added to queue!', 'success')
+            return redirect(url_for('torrent_detail', torrent_id=torrent.id))
+
+        except Exception as e:
+            flash(f'Error adding Mega.nz download: {str(e)}', 'danger')
+
+    return render_template('add_mega.html')
 
 
 # Admin Routes
