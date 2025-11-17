@@ -16,6 +16,7 @@ from config import settings
 from torrent import TorrentClient
 from drive import RcloneManager
 from webapp.models import Torrent, TorrentFile, User, db
+from mega_downloader import MegaDownloader
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class WebTorrentProcessor:
     def __init__(self):
         self.torrent_client = TorrentClient()
         self.rclone_manager = RcloneManager()
+        self.mega_downloader = MegaDownloader()
         self.running = False
         self.processing_hashes = set()  # Track currently processing torrent IDs
 
@@ -49,6 +51,10 @@ class WebTorrentProcessor:
         self.torrent_client.shutdown()
         logger.info("Web torrent processor stopped")
 
+    def is_mega_link(self, link: str) -> bool:
+        """Check if a link is a Mega.nz link."""
+        return link and 'mega.nz' in link.lower()
+
     async def process_queued_torrents(self):
         """Check database for queued torrents and process them."""
         from webapp.app import app
@@ -64,8 +70,11 @@ class WebTorrentProcessor:
                 if torrent_record.id in self.processing_hashes:
                     continue
 
-                # Process in background
-                asyncio.create_task(self.process_torrent(torrent_record.id))
+                # Process in background (detect Mega.nz or torrent)
+                if self.is_mega_link(torrent_record.magnet_link):
+                    asyncio.create_task(self.process_mega_download(torrent_record.id))
+                else:
+                    asyncio.create_task(self.process_torrent(torrent_record.id))
 
     async def process_torrent(self, torrent_id: int):
         """Process a single torrent."""
@@ -163,6 +172,134 @@ class WebTorrentProcessor:
                     torrent_record = Torrent.query.get(torrent_id)
                     if torrent_record:
                         torrent_record.status = 'failed'
+                        db.session.commit()
+
+            finally:
+                self.processing_hashes.discard(torrent_id)
+
+    async def process_mega_download(self, torrent_id: int):
+        """Process a Mega.nz download."""
+        from webapp.app import app
+
+        # Mark as processing
+        self.processing_hashes.add(torrent_id)
+
+        with app.app_context():
+            torrent_record = Torrent.query.get(torrent_id)
+            if not torrent_record or torrent_record.status != 'queued':
+                self.processing_hashes.discard(torrent_id)
+                return
+
+            # Check if user can download (quota check)
+            user = torrent_record.user
+            if not user.can_download(0):
+                logger.warning(f"User {user.username} has exceeded daily download limit")
+                torrent_record.status = 'failed'
+                torrent_record.error_message = 'Daily download limit exceeded'
+                db.session.commit()
+                self.processing_hashes.discard(torrent_id)
+                return
+
+            mega_link = torrent_record.magnet_link
+
+            try:
+                logger.info(f"Processing Mega.nz download {torrent_id}: {mega_link[:50]}...")
+
+                # Step 1: Update status
+                torrent_record.status = 'downloading'
+                db.session.commit()
+
+                # Step 2: Download from Mega.nz
+                download_dir = Path(settings.DOWNLOAD_DIR)
+                download_dir.mkdir(parents=True, exist_ok=True)
+
+                # Download file using MegaDownloader (runs in executor to avoid blocking)
+                loop = asyncio.get_event_loop()
+                download_result = await loop.run_in_executor(
+                    None,
+                    self.mega_downloader.download,
+                    mega_link,
+                    str(download_dir)
+                )
+
+                if not download_result.get('success'):
+                    raise Exception(download_result.get('error', 'Unknown error'))
+
+                downloaded_files = download_result.get('files', [])
+                if not downloaded_files:
+                    raise Exception("No files downloaded")
+
+                # Get the downloaded file/folder path
+                download_path = Path(downloaded_files[0])
+                if len(downloaded_files) > 1:
+                    # Multiple files - use parent directory
+                    download_path = download_path.parent
+
+                # Get actual file size
+                total_size = sum(Path(f).stat().st_size for f in downloaded_files if Path(f).exists())
+
+                # Check if user can download this size
+                if not user.can_download(total_size):
+                    remaining = user.get_remaining_quota_gb()
+                    logger.warning(f"User {user.username} cannot download {total_size} bytes (remaining: {remaining} GB)")
+                    torrent_record.status = 'failed'
+                    torrent_record.error_message = f'Insufficient quota. Remaining: {remaining} GB'
+                    db.session.commit()
+                    self.processing_hashes.discard(torrent_id)
+                    # Cleanup
+                    self.cleanup_download(download_path)
+                    return
+
+                # Update torrent record
+                torrent_record.total_size = total_size
+                torrent_record.progress = 100.0
+                db.session.commit()
+
+                logger.info(f"Mega.nz download completed: {download_path}")
+
+                # Step 3: Upload to Google Drive
+                torrent_record.status = 'uploading'
+                torrent_record.progress = 0.0
+                db.session.commit()
+
+                folder_name = torrent_record.name or download_path.name
+                await self.upload_to_drive(download_path, folder_name, torrent_record)
+
+                # Step 4: Get Google Drive folder web link
+                gdrive_folder_link = await self.rclone_manager.get_folder_weblink(folder_name)
+
+                # Step 5: Get Drive Index link
+                index_link = settings.get_index_url(folder_name)
+
+                # Step 6: Create file records
+                await self.create_file_records(torrent_record, download_path, folder_name)
+
+                # Step 7: Add download usage to user
+                with app.app_context():
+                    user = User.query.get(torrent_record.user_id)
+                    if user:
+                        user.add_download_usage(total_size)
+
+                # Step 8: Mark as completed
+                torrent_record.status = 'completed'
+                torrent_record.progress = 100.0
+                torrent_record.gdrive_link = gdrive_folder_link
+                torrent_record.index_link = index_link
+                db.session.commit()
+
+                logger.info(f"Mega.nz download {torrent_id} completed successfully")
+
+                # Cleanup
+                self.cleanup_download(download_path)
+
+            except Exception as e:
+                logger.error(f"Error processing Mega.nz download {torrent_id}: {e}", exc_info=True)
+
+                with app.app_context():
+                    torrent_record = Torrent.query.get(torrent_id)
+                    if torrent_record:
+                        torrent_record.status = 'failed'
+                        torrent_record.error_message = str(e)
                         db.session.commit()
 
             finally:
