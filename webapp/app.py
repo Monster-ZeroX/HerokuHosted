@@ -482,6 +482,13 @@ def add_torrent():
                     Torrent.gdrive_link.isnot(None)
                 ).first()
 
+            if not existing_torrent and effective_name:
+                existing_torrent = Torrent.query.filter(
+                    Torrent.name.ilike(effective_name),
+                    Torrent.status == 'completed',
+                    Torrent.gdrive_link.isnot(None)
+                ).order_by(Torrent.completed_at.desc()).first()
+
             if existing_torrent:
                 total_size_value = selected_total_size or existing_torrent.total_size
                 torrent = Torrent(

@@ -17,20 +17,20 @@
                     <input type="hidden" name="uploaded_file_path" value="{{ uploaded_file_path or '' }}">
 
                     <div class="mb-4">
-                        <label for="magnet_link" class="form-label fw-bold">Magnet Link</label>
+                        <label for="magnet_link" class="form-label fw-bold text-bright">Magnet Link</label>
                         <textarea class="form-control" id="magnet_link" name="magnet_link" rows="3"
                                   placeholder="magnet:?xt=urn:btih:...">{{ magnet_link or '' }}</textarea>
-                        <small class="text-muted">Paste your magnet link here</small>
+                        <small class="text-bright-soft">Paste your magnet link here</small>
                     </div>
 
                     <div class="mb-4">
-                        <label for="torrent_file" class="form-label fw-bold">or Upload .torrent file</label>
+                        <label for="torrent_file" class="form-label fw-bold text-bright">or Upload .torrent file</label>
                         <input type="file" class="form-control" id="torrent_file" name="torrent_file" accept=".torrent">
-                        <small class="text-muted">You can upload a .torrent file instead of a magnet link</small>
+                        <small class="text-bright-soft">You can upload a .torrent file instead of a magnet link</small>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold d-block">Download options</label>
+                        <label class="form-label fw-bold d-block text-bright">Download options</label>
                         <div class="btn-group" role="group" aria-label="Selection mode">
                             <input type="radio" class="btn-check" name="selection_mode" id="select-all" value="all"
                                    autocomplete="off" {% if selection_mode != 'select' %}checked{% endif %}>
@@ -40,7 +40,7 @@
                                    autocomplete="off" {% if selection_mode == 'select' %}checked{% endif %}>
                             <label class="btn btn-outline-primary" for="select-files"><i class="bi bi-list-check"></i> Select files to download</label>
                         </div>
-                        <small class="text-muted d-block mt-2">Choose whether to grab everything or only specific files from the torrent.</small>
+                        <small class="text-bright-soft d-block mt-2">Choose whether to grab everything or only specific files from the torrent.</small>
                     </div>
 
                     {% if torrent_files %}
@@ -89,8 +89,8 @@
 
         <div class="card mt-4">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-info-circle"></i> How it works</h5>
-                <ol class="mb-0">
+                <h5 class="card-title text-bright"><i class="bi bi-info-circle"></i> How it works</h5>
+                <ol class="mb-0 text-bright-soft">
                     <li>Paste your magnet link above</li>
                     <li>The torrent will be added to the download queue</li>
                     <li>Files will be downloaded and uploaded to Google Drive</li>

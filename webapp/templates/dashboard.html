@@ -91,8 +91,8 @@
                 {% if torrent.status in ['downloading', 'uploading'] %}
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="text-muted">Progress</small>
-                        <small class="text-muted">{{ '%.1f' % torrent.progress }}%</small>
+                        <small class="text-bright-soft">Progress</small>
+                        <small class="text-bright-soft">{{ '%.1f' % torrent.progress }}%</small>
                     </div>
                     <div class="progress">
                         <div class="progress-bar bg-primary" style="width: {{ torrent.progress }}%"></div>
