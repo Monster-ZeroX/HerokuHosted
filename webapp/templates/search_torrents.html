@@ -43,24 +43,24 @@
             <div class="col-md-4">
                 <div class="p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
                     <h5 style="color: var(--apple-blue);"><i class="bi bi-film"></i> Movies</h5>
-                    <p class="mb-0" style="color: var(--apple-gray);">Try: "Inception 2010" or "Avengers"</p>
+                    <p class="mb-0" style="color: var(--text-secondary);">Try: "Inception 2010" or "Avengers"</p>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
                     <h5 style="color: var(--apple-green);"><i class="bi bi-tv"></i> TV Shows</h5>
-                    <p class="mb-0" style="color: var(--apple-gray);">Try: "Breaking Bad S01" or "Game of Thrones"</p>
+                    <p class="mb-0" style="color: var(--text-secondary);">Try: "Breaking Bad S01" or "Game of Thrones"</p>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="p-3" style="background: var(--apple-gray-light); border-radius: 12px;">
                     <h5 style="color: var(--apple-orange);"><i class="bi bi-controller"></i> Games & Software</h5>
-                    <p class="mb-0" style="color: var(--apple-gray);">Try: "GTA V" or "Adobe Photoshop"</p>
+                    <p class="mb-0" style="color: var(--text-secondary);">Try: "GTA V" or "Adobe Photoshop"</p>
                 </div>
             </div>
         </div>
         <div class="mt-4">
-            <small style="color: var(--apple-gray);">
+            <small style="color: var(--text-secondary);">
                 <i class="bi bi-shield-check"></i> Searching: 1337x, ThePirateBay, YTS
             </small>
         </div>
@@ -74,9 +74,9 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
             <i class="bi bi-check-circle" style="color: var(--apple-green);"></i>
-            Found {{ results|length }} results for "{{ query }}"
+            Showing {{ showing_count }} of {{ total_results }} results for "{{ query }}"
         </h5>
-        <small style="color: var(--apple-gray);">Sorted by seeders</small>
+        <small style="color: var(--text-secondary);">Sorted by seeders</small>
     </div>
 </div>
 
@@ -89,7 +89,7 @@
                     <div class="col-md-6">
                         <h6 class="mb-2">{{ result.name[:80] }}{% if result.name|length > 80 %}...{% endif %}</h6>
                         <div class="d-flex gap-3">
-                            <small style="color: var(--apple-gray);">
+                            <small style="color: var(--text-secondary);">
                                 <i class="bi bi-hdd"></i> {{ result.size }}
                             </small>
                             <small style="color: var(--apple-green);">
@@ -122,12 +122,27 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- See More Button -->
+{% if showing_count < total_results %}
+<div class="text-center mt-4">
+    <form method="POST" action="{{ url_for('search_torrents_page') }}">
+        <input type="hidden" name="query" value="{{ query }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <input type="hidden" name="show_all" value="true">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-arrow-down-circle"></i> See More Results ({{ total_results - showing_count }} more)
+        </button>
+    </form>
+</div>
+{% endif %}
+
 {% elif query %}
 <div class="card text-center py-5">
     <div class="card-body">
-        <i class="bi bi-search" style="font-size: 4rem; color: var(--apple-gray);"></i>
+        <i class="bi bi-search" style="font-size: 4rem; color: var(--text-secondary);"></i>
         <h4 class="mt-3">No Results Found</h4>
-        <p style="color: var(--apple-gray);">Try different keywords or check your spelling</p>
+        <p style="color: var(--text-secondary);">Try different keywords or check your spelling</p>
     </div>
 </div>
 {% endif %}

@@ -192,17 +192,60 @@ def search_torrents_page():
     """Search for torrents."""
     results = []
     query = ''
+    page = 1
+    show_count = 20  # Initial display count
 
     if request.method == 'POST':
         query = request.form.get('query', '').strip()
+        page = int(request.form.get('page', 1))
+        show_all = request.form.get('show_all', 'false') == 'true'
 
         if query:
             try:
-                results = search_torrents(query, limit_per_source=15)
+                # Get more results per source for better coverage
+                all_results = search_torrents(query, limit_per_source=25, page=page)
+
+                if show_all:
+                    # Show all results
+                    results = all_results
+                else:
+                    # Show only first 20 results initially
+                    results = all_results[:show_count]
+
+                # Store total count for "see more" button
+                total_results = len(all_results)
+
             except Exception as e:
                 flash(f'Error searching torrents: {str(e)}', 'danger')
+                total_results = 0
+    else:
+        # GET request - check for query parameter
+        query = request.args.get('query', '').strip()
+        page = int(request.args.get('page', 1))
+        show_all = request.args.get('show_all', 'false') == 'true'
 
-    return render_template('search_torrents.html', results=results, query=query)
+        if query:
+            try:
+                all_results = search_torrents(query, limit_per_source=25, page=page)
+
+                if show_all:
+                    results = all_results
+                else:
+                    results = all_results[:show_count]
+
+                total_results = len(all_results)
+            except Exception as e:
+                flash(f'Error searching torrents: {str(e)}', 'danger')
+                total_results = 0
+        else:
+            total_results = 0
+
+    return render_template('search_torrents.html',
+                         results=results,
+                         query=query,
+                         page=page,
+                         total_results=total_results if query else 0,
+                         showing_count=len(results))
 
 
 @app.route('/torrent/<int:torrent_id>')

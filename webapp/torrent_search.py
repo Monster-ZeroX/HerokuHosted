@@ -10,6 +10,14 @@ import re
 
 logger = logging.getLogger(__name__)
 
+# Try to import py1337x
+try:
+    from py1337x import py1337x
+    PY1337X_AVAILABLE = True
+except ImportError:
+    logger.warning("py1337x library not available, falling back to web scraping")
+    PY1337X_AVAILABLE = False
+
 
 class TorrentResult:
     """Represents a single torrent search result."""
@@ -43,9 +51,55 @@ class TorrentSearchEngine:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         self.timeout = 10
+        # Initialize py1337x if available
+        if PY1337X_AVAILABLE:
+            self.py1337x_client = py1337x()
+        else:
+            self.py1337x_client = None
 
-    def search_1337x(self, query: str, limit: int = 20) -> List[TorrentResult]:
-        """Search 1337x.to"""
+    def search_1337x(self, query: str, limit: int = 50, page: int = 1) -> List[TorrentResult]:
+        """Search 1337x.to using py1337x API library."""
+        results = []
+
+        # Try py1337x API first
+        if self.py1337x_client:
+            try:
+                logger.info(f"Using py1337x API to search for: {query}")
+                api_results = self.py1337x_client.search(query, page=page)
+
+                if api_results and 'items' in api_results:
+                    for item in api_results['items'][:limit]:
+                        try:
+                            # Get torrent details for magnet link
+                            torrent_id = item.get('torrentId')
+                            if torrent_id:
+                                torrent_info = self.py1337x_client.info(link=item.get('link'))
+                                magnet = torrent_info.get('magnetLink', '')
+
+                                if magnet:
+                                    results.append(TorrentResult(
+                                        name=item.get('name', 'Unknown'),
+                                        magnet=magnet,
+                                        size=item.get('size', 'Unknown'),
+                                        seeders=int(item.get('seeders', 0)),
+                                        leechers=int(item.get('leechers', 0)),
+                                        source='1337x',
+                                        url=item.get('link', '')
+                                    ))
+                        except Exception as e:
+                            logger.debug(f"Error parsing py1337x result: {e}")
+                            continue
+
+                    logger.info(f"Found {len(results)} results from py1337x API")
+                    return results
+            except Exception as e:
+                logger.error(f"Error with py1337x API: {e}, falling back to web scraping")
+
+        # Fallback to web scraping if API fails
+        return self._search_1337x_scrape(query, limit)
+
+    def _search_1337x_scrape(self, query: str, limit: int = 20) -> List[TorrentResult]:
+        """Search 1337x.to using web scraping (fallback method)."""
         results = []
         try:
             search_url = f"https://1337x.to/search/{quote_plus(query)}/1/"
@@ -241,13 +295,13 @@ class TorrentSearchEngine:
 
         return results
 
-    def search_all(self, query: str, limit_per_source: int = 10) -> List[TorrentResult]:
+    def search_all(self, query: str, limit_per_source: int = 25, page: int = 1) -> List[TorrentResult]:
         """Search all providers and combine results."""
         all_results = []
 
-        # Search all providers
+        # Search all providers with higher limits
         providers = [
-            ('1337x', self.search_1337x),
+            ('1337x', lambda q, l: self.search_1337x(q, limit=l, page=page)),
             ('ThePirateBay', self.search_thepiratebay),
             ('YTS', self.search_yts)
         ]
@@ -271,16 +325,17 @@ class TorrentSearchEngine:
 search_engine = TorrentSearchEngine()
 
 
-def search_torrents(query: str, limit_per_source: int = 10) -> List[Dict]:
+def search_torrents(query: str, limit_per_source: int = 25, page: int = 1) -> List[Dict]:
     """
     Search for torrents across multiple providers.
 
     Args:
         query: Search query
         limit_per_source: Maximum results per provider
+        page: Page number for pagination
 
     Returns:
         List of torrent dictionaries sorted by seeders
     """
-    results = search_engine.search_all(query, limit_per_source)
+    results = search_engine.search_all(query, limit_per_source, page)
     return [r.to_dict() for r in results]
