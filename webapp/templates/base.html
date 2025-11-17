@@ -61,7 +61,7 @@
             --bg-primary: #000000;
             --bg-secondary: #1C1C1E;
             --text-primary: #F5F5F7;
-            --text-secondary: #98989D;
+            --text-secondary: #E0E0E0;
             --border-color: rgba(255, 255, 255, 0.1);
             --navbar-bg: rgba(28, 28, 30, 0.8);
             --card-bg: #1C1C1E;
@@ -480,7 +480,11 @@
     <!-- Footer -->
     <footer class="text-center">
         <div class="container">
-            <p class="mb-0">&copy; 2025 Torrent2Drive | Made with <i class="bi bi-heart-fill text-danger"></i></p>
+            <p class="mb-0">&copy; 2025 Torrent2Drive | 
+                <a href="{{ url_for('terms') }}">Terms and Conditions</a> | 
+                <a href="{{ url_for('privacy_policy') }}">Privacy Policy</a> | 
+                Made with <i class="bi bi-heart-fill text-danger"></i>
+            </p>
         </div>
     </footer>
 

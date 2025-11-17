@@ -554,6 +554,18 @@ def api_torrent_status(torrent_id):
     })
 
 
+@app.route('/terms')
+def terms():
+    """Terms and Conditions page."""
+    return render_template('terms.html')
+
+
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Privacy Policy page."""
+    return render_template('privacy_policy.html')
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
