@@ -53,6 +53,7 @@
         [data-theme="dark"] {
             --apple-gray-light: #2C2C2E;
             --apple-gray-bg: #000000;
+            --apple-gray: #E5E5EA;
             --apple-border: rgba(255, 255, 255, 0.1);
             --apple-shadow: rgba(0, 0, 0, 0.3);
             --apple-shadow-hover: rgba(0, 0, 0, 0.5);
@@ -62,10 +63,10 @@
             --bg-secondary: #1C1C1E;
             --text-primary: #F5F5F7;
             --text-secondary: #FFFFFF;
-            --border-color: rgba(255, 255, 255, 0.1);
+            --border-color: rgba(255, 255, 255, 0.2);
             --navbar-bg: rgba(28, 28, 30, 0.8);
             --card-bg: #1C1C1E;
-            --input-bg: #2C2C2E;
+            --input-bg: rgba(255, 255, 255, 0.08);
         }
 
         * {
@@ -354,6 +355,12 @@
             background: var(--input-bg);
             color: var(--text-primary);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .input-group-text {
+            background: var(--input-bg);
+            border: 1.5px solid var(--border-color);
+            color: var(--text-primary);
         }
 
         input:focus, textarea:focus, select:focus {
