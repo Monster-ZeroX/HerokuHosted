@@ -91,8 +91,8 @@
                 {% if torrent.status in ['downloading', 'uploading'] %}
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="text-muted">Progress</small>
-                        <small class="text-muted">{{ '%.1f' % torrent.progress }}%</small>
+                        <small class="">Progress</small>
+                        <small class="">{{ '%.1f' % torrent.progress }}%</small>
                     </div>
                     <div class="progress">
                         <div class="progress-bar bg-primary" style="width: {{ torrent.progress }}%"></div>
@@ -101,11 +101,11 @@
                 {% endif %}
 
                 <div class="mb-3">
-                    <small class="text-muted d-block">
+                    <small class="d-block">
                         <i class="bi bi-calendar"></i> {{ torrent.created_at.strftime('%Y-%m-%d %H:%M') }}
                     </small>
                     {% if torrent.total_size %}
-                    <small class="text-muted d-block">
+                    <small class="d-block">
                         <i class="bi bi-hdd"></i> {{ (torrent.total_size / 1024 / 1024 / 1024)|round(2) }} GB
                     </small>
                     {% endif %}

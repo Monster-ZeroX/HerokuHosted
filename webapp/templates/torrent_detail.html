@@ -93,7 +93,7 @@
                                 <i class="bi bi-file-earmark"></i>
                                 <strong class="">{{ file.file_path.split('/')[-1] }}</strong>
                                 {% if file.file_size %}
-                                <br><small class="text-muted">{{ (file.file_size / 1024 / 1024)|round(2) }} MB</small>
+                                <br><small class="">{{ (file.file_size / 1024 / 1024)|round(2) }} MB</small>
                                 {% endif %}
                             </div>
                             {% if file.index_link and torrent.status == 'completed' %}
