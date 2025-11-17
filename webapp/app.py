@@ -126,30 +126,22 @@ def extract_payment_url(response_json: dict):
 def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -> tuple[Optional[str], Optional[str]]:
     """Create a Genie payment session and return (payment_url, gateway_payment_id)."""
     headers = _genie_headers()
-    if not headers or not GENIE_MERCHANT_ID:
+    if not headers:
         return None, None
 
     plan = PAID_PLANS.get(plan_key)
     create_url, _ = build_payment_urls()
     payload = {
-        'merchantId': GENIE_MERCHANT_ID,
+        # The public v2 transactions endpoint expects only core payment fields. Supplying
+        # optional identifiers like merchantId/reference/callbackUrl triggers a 400 with
+        # "property ... should not exist", so stick to the minimal contract.
         'amount': plan['price'],
         'currency': GENIE_CURRENCY,
-        'reference': txn.reference,
-        'description': f"Torrent2Drive upgrade: {plan['label']}",
-        'callbackUrl': url_for('genie_webhook', _external=True),
-        'returnUrl': url_for('upgrade_confirm', txn=txn.id, _external=True),
-        'customer': {
-            'id': user.id,
-            'name': user.username,
-            'email': f"{user.username}@example.com",
-        },
-        'metadata': {
-            'user_id': user.id,
-            'plan_key': plan_key,
-            'txn_id': txn.id,
-        }
     }
+    # Keep a local correlation ID when allowed without violating the schema. If Genie
+    # rejects this field it will surface in the error log and can be removed quickly.
+    if txn.reference:
+        payload['localId'] = txn.reference
 
     try:
         response = requests.post(create_url, json=payload, headers=headers, timeout=20)
