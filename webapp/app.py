@@ -3,6 +3,7 @@ Flask web application for Torrent to Google Drive.
 """
 import os
 import re
+import json
 import requests
 import asyncio
 from uuid import uuid4
@@ -183,8 +184,8 @@ def fetch_payment_status(payment_id: str) -> Optional[str]:
 
         # Genie uses `state` (e.g., COMPLETED) in many responses; `status` may also appear
         # in some environments. Prefer state, then status, and normalise to lower case.
-        state = data.get('state') or (data.get('data') or {}).get('state')
-        status = data.get('status') or (data.get('data') or {}).get('status')
+        state = data.get('state') or (data.get('data') or {}).get('state') or (data.get('transaction') or {}).get('state')
+        status = data.get('status') or (data.get('data') or {}).get('status') or (data.get('transaction') or {}).get('status')
 
         normalized = None
         for candidate in (state, status):
@@ -195,9 +196,9 @@ def fetch_payment_status(payment_id: str) -> Optional[str]:
         if not normalized:
             return None
 
-        if normalized in ('completed', 'paid', 'success', 'succeeded', 'confirmed'):
+        if normalized in ('completed', 'paid', 'success', 'succeeded', 'confirmed', 'approved'):
             return 'paid'
-        if normalized in ('failed', 'canceled', 'cancelled', 'declined', 'voided'):
+        if normalized in ('failed', 'canceled', 'cancelled', 'declined', 'voided', 'rejected'):
             return 'failed'
         return 'pending'
     except Exception as exc:
@@ -221,6 +222,18 @@ def refresh_pending_transactions(user: User):
             txn.mark_failed('gateway_failed')
     if updated:
         db.session.commit()
+
+
+def _attach_gateway_response(txn: PaymentTransaction, payload: dict):
+    """Store raw gateway payload for auditing without breaking existing data."""
+    if not payload:
+        return
+    try:
+        existing = json.loads(txn.raw_response) if txn.raw_response else {}
+    except Exception:
+        existing = {}
+    merged = {**existing, 'last_webhook': payload}
+    txn.raw_response = json.dumps(merged)
 
 
 def apply_paid_plan(user: User, plan_key: str):
@@ -578,7 +591,13 @@ def start_upgrade():
         db.session.commit()
 
     if payment_url:
-        return redirect(payment_url)
+        return render_template(
+            'upgrade_checkout.html',
+            payment_url=payment_url,
+            txn=txn,
+            plan=plan,
+            currency=GENIE_CURRENCY,
+        )
 
     flash('Unable to start payment. Please check Genie API settings.', 'danger')
     txn.mark_failed('payment_url_missing')
@@ -604,6 +623,12 @@ def upgrade_confirm():
         txn.gateway_payment_id = payment_id
         db.session.commit()
 
+    # If a webhook already confirmed payment, apply and exit early
+    if txn.status == 'paid':
+        apply_paid_plan(current_user, txn.plan_key)
+        flash('Payment received! Your plan has been upgraded.', 'success')
+        return redirect(url_for('dashboard'))
+
     status = fetch_payment_status(txn.gateway_payment_id or payment_id)
     if status == 'paid':
         txn.mark_paid()
@@ -618,6 +643,33 @@ def upgrade_confirm():
 
     flash('Payment is still pending. We will upgrade you automatically once it clears.', 'info')
     return redirect(url_for('upgrade'))
+
+
+@app.route('/api/payments/<reference>/status')
+@login_required
+def api_payment_status(reference):
+    txn = PaymentTransaction.query.filter_by(reference=reference).first_or_404()
+    if txn.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'error': 'forbidden'}), 403
+
+    status = txn.status
+    if status == 'pending' and txn.gateway_payment_id:
+        refreshed = fetch_payment_status(txn.gateway_payment_id)
+        if refreshed == 'paid':
+            txn.mark_paid()
+            apply_paid_plan(txn.user, txn.plan_key)
+            status = 'paid'
+        elif refreshed == 'failed':
+            txn.mark_failed('gateway_failed')
+            status = 'failed'
+
+    return jsonify({
+        'status': status,
+        'plan': txn.plan_key,
+        'payment_id': txn.gateway_payment_id,
+        'reference': txn.reference,
+        'expires_at': txn.user.subscription_expires_at.isoformat() if txn.user.subscription_expires_at else None,
+    })
 
 
 # Dashboard Routes
@@ -1137,9 +1189,9 @@ def genie_webhook():
     """Webhook for Genie Business Connect payment updates."""
     data = request.get_json(force=True) or {}
 
-    reference = data.get('reference') or (data.get('metadata') or {}).get('reference')
-    payment_id = data.get('payment_id') or data.get('id')
-    status = (data.get('status') or data.get('state') or '').lower()
+    reference = data.get('reference') or (data.get('metadata') or {}).get('reference') or data.get('localId')
+    payment_id = data.get('payment_id') or data.get('id') or (data.get('data') or {}).get('id')
+    status = (data.get('status') or data.get('state') or (data.get('data') or {}).get('state') or '').lower()
     plan_key = (data.get('metadata') or {}).get('plan_key')
 
     txn = None
@@ -1153,17 +1205,19 @@ def genie_webhook():
 
     if payment_id and not txn.gateway_payment_id:
         txn.gateway_payment_id = str(payment_id)
-        db.session.commit()
 
-    if status in ('paid', 'success', 'completed', 'succeeded', 'confirmed'):
+    _attach_gateway_response(txn, data)
+
+    if status in ('paid', 'success', 'completed', 'succeeded', 'confirmed', 'approved'):
         txn.mark_paid()
         apply_paid_plan(txn.user, plan_key or txn.plan_key)
         return jsonify({'status': 'upgraded'}), 200
 
-    if status in ('failed', 'canceled', 'cancelled'):
+    if status in ('failed', 'canceled', 'cancelled', 'declined', 'rejected', 'voided'):
         txn.mark_failed(f"status={status}")
         return jsonify({'status': 'failed'}), 200
 
+    db.session.commit()
     return jsonify({'status': status or 'pending'}), 200
 
 

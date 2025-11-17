@@ -139,6 +139,7 @@ HerokuHosted/
 - `GENIE_API_BASE` – defaults to `https://api.geniebiz.lk/public/v2` (override if your merchant uses a different host/path)
 - `GENIE_CURRENCY` – defaults to `LKR`
 - `PLAN_100_PRICE_LKR`, `PLAN_300_PRICE_LKR`, `PLAN_UNLIMITED_PRICE_LKR` – override default plan prices (300/600/1200 LKR for 30 days)
+- **Webhook:** point your Genie Business Connect webhook URL to `https://<your-app>/webhook/genie` so paid/failed statuses are pushed instantly (the app also polls if webhooks are delayed).
 
 **Default Credentials:**
 - **Admin**: Username: `MonsterZeroX` | Password: `Kaveesha@2005`
