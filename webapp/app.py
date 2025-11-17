@@ -7,6 +7,7 @@ import requests
 import asyncio
 from uuid import uuid4
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -51,6 +52,42 @@ def inject_formatters():
         'format_size': format_size,
         'format_eta': format_eta
     }
+
+
+def extract_submission_metadata(source_path: str):
+    """Best-effort extraction of torrent name and hash without waiting on DHT."""
+    name = None
+    info_hash = None
+    total_size = None
+
+    try:
+        if source_path.startswith('magnet:'):
+            parsed = urlparse(source_path)
+            params = parse_qs(parsed.query)
+
+            dn_values = params.get('dn', [])
+            if dn_values:
+                name = dn_values[0]
+
+            xt_values = params.get('xt', [])
+            for xt in xt_values:
+                if xt.startswith('urn:btih:'):
+                    info_hash = xt.split(':')[-1].upper()
+                    break
+        elif source_path and os.path.exists(source_path):
+            try:
+                import libtorrent as lt
+
+                ti = lt.torrent_info(source_path)
+                name = ti.name()
+                info_hash = str(ti.info_hash())
+                total_size = ti.total_size()
+            except Exception as e:
+                app.logger.warning(f"Failed to parse torrent file metadata: {e}")
+    except Exception as e:
+        app.logger.warning(f"Metadata extraction fallback failed: {e}")
+
+    return name, info_hash, total_size
 
 
 @app.after_request
@@ -413,11 +450,82 @@ def add_torrent():
                 )
 
         try:
+            torrent_info = None
+            selected_total_size = None
+
+            # Try to fetch full metadata so the name/info-hash are correct immediately
+            try:
+                torrent_client = TorrentClient()
+                torrent_info = asyncio.run(torrent_client.get_torrent_info(source_path))
+            except Exception as meta_err:
+                app.logger.warning(f"Non-blocking metadata prefetch failed: {meta_err}")
+
+            fallback_name, fallback_hash, fallback_size = extract_submission_metadata(source_path)
+            effective_name = (torrent_info.name if torrent_info else fallback_name) or "Processing..."
+            effective_hash = (torrent_info.info_hash if torrent_info else fallback_hash) or "pending"
+
+            if selection_mode == 'select' and selected_indices and torrent_info:
+                selected_total_size = sum(
+                    f.size for f in torrent_info.files if f.index in selected_indices
+                )
+            elif torrent_info:
+                selected_total_size = torrent_info.total_size
+            elif fallback_size:
+                selected_total_size = fallback_size
+
+            # If this torrent already exists on Drive, reuse it instead of downloading again
+            existing_torrent = None
+            if effective_hash and effective_hash != "pending":
+                existing_torrent = Torrent.query.filter(
+                    Torrent.info_hash == effective_hash,
+                    Torrent.status == 'completed',
+                    Torrent.gdrive_link.isnot(None)
+                ).first()
+
+            if existing_torrent:
+                total_size_value = selected_total_size or existing_torrent.total_size
+                torrent = Torrent(
+                    user_id=current_user.id,
+                    name=effective_name or existing_torrent.name,
+                    info_hash=effective_hash,
+                    magnet_link=source_path,
+                    total_size=total_size_value,
+                    status='completed',
+                    progress=100.0,
+                    gdrive_link=existing_torrent.gdrive_link,
+                    gdrive_path=existing_torrent.gdrive_path,
+                    index_link=existing_torrent.index_link,
+                    selection_mode=selection_mode,
+                    selected_file_indices=','.join(str(i) for i in selected_indices) if selected_indices else None,
+                    completed_at=datetime.utcnow()
+                )
+                db.session.add(torrent)
+                db.session.flush()
+
+                if existing_torrent.files:
+                    for f in existing_torrent.files:
+                        if selected_indices and f.file_index not in selected_indices:
+                            continue
+                        db.session.add(TorrentFile(
+                            torrent_id=torrent.id,
+                            file_path=f.file_path,
+                            file_size=f.file_size,
+                            file_index=f.file_index,
+                            is_selected=(selected_indices is None or f.file_index in selected_indices),
+                            gdrive_link=f.gdrive_link,
+                            index_link=f.index_link
+                        ))
+
+                db.session.commit()
+                flash('Torrent already available on Google Drive. Linked existing files.', 'info')
+                return redirect(url_for('torrent_detail', torrent_id=torrent.id))
+
             torrent = Torrent(
                 user_id=current_user.id,
-                name="Processing...",  # Will be updated when metadata is fetched
-                info_hash="pending",
+                name=effective_name,
+                info_hash=effective_hash,
                 magnet_link=source_path,
+                total_size=selected_total_size,
                 status='queued',
                 selection_mode=selection_mode,
                 selected_file_indices=','.join(str(i) for i in selected_indices) if selected_indices else None

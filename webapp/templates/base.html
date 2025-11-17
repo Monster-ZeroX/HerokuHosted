@@ -61,7 +61,7 @@
             --bg-primary: #000000;
             --bg-secondary: #1C1C1E;
             --text-primary: #F5F5F7;
-            --text-secondary: #E0E0E0;
+            --text-secondary: #FFFFFF;
             --border-color: rgba(255, 255, 255, 0.1);
             --navbar-bg: rgba(28, 28, 30, 0.8);
             --card-bg: #1C1C1E;
@@ -299,6 +299,26 @@
 
         .text-muted {
             color: var(--text-secondary) !important;
+        }
+
+        [data-theme="dark"] .form-label,
+        [data-theme="dark"] label,
+        [data-theme="dark"] small,
+        [data-theme="dark"] .form-text,
+        [data-theme="dark"] .text-muted,
+        [data-theme="dark"] .text-secondary,
+        [data-theme="dark"] .card-body p,
+        [data-theme="dark"] .card-body li,
+        [data-theme="dark"] .card-body .lead,
+        [data-theme="dark"] input,
+        [data-theme="dark"] textarea,
+        [data-theme="dark"] select {
+            color: #FFFFFF !important;
+        }
+
+        [data-theme="dark"] ::placeholder {
+            color: #FFFFFF !important;
+            opacity: 0.85;
         }
 
         footer {
