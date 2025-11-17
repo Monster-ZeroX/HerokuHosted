@@ -12,4 +12,4 @@ beautifulsoup4==4.12.2
 Pillow==10.1.0
 mega.py==1.0.8
 pathlib==1.0.1
-py1337x==1.2.1
+py1337x
