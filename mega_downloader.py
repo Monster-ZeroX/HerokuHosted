@@ -44,15 +44,23 @@ class MegaDownloader:
             self.mega = Mega()
             if self.email and self.password:
                 logger.info(f"Logging into Mega.nz with account: {self.email}")
-                self.mega = self.mega.login(self.email, self.password)
-                logger.info("Successfully logged into Mega.nz premium account")
+                try:
+                    self.mega = self.mega.login(self.email, self.password)
+                    logger.info("Successfully logged into Mega.nz premium account")
+                except Exception as e:
+                    if "Expecting value" in str(e):
+                        logger.error("Failed to login to Mega.nz: The API returned an invalid response. This might be due to incorrect credentials or an issue with the Mega.nz service.")
+                    else:
+                        logger.error(f"An unexpected error occurred during Mega.nz login: {e}")
+                    # Do not continue if login fails
+                    raise
             else:
                 logger.warning("No Mega.nz credentials provided, using anonymous mode")
                 # Anonymous mode - no login required, just use public methods
         except Exception as e:
-            logger.error(f"Failed to login to Mega.nz: {e}")
-            # Continue anyway - public downloads might still work
-            self.mega = Mega()
+            logger.error(f"Failed to initialize Mega session: {e}")
+            # If initialization fails, we can't proceed
+            raise
 
     def parse_mega_link(self, url: str) -> Dict[str, str]:
         """

@@ -81,7 +81,29 @@ class TorrentBot:
         logger.info("Starting bot polling...")
         await self.app.initialize()
         await self.app.start()
-        await self.app.updater.start_polling(drop_pending_updates=True)
+
+        # Retry logic for starting polling
+        max_retries = 3
+        retry_delay = 5  # seconds
+        for attempt in range(max_retries):
+            try:
+                await self.app.updater.start_polling(drop_pending_updates=True)
+                logger.info("Successfully started polling for updates.")
+                break  # Exit loop on success
+            except Exception as e:
+                if "Timed out" in str(e):
+                    logger.warning(
+                        f"Connection to Telegram timed out (attempt {attempt + 1}/{max_retries}). "
+                        f"Retrying in {retry_delay} seconds..."
+                    )
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                    else:
+                        logger.error("Failed to connect to Telegram after multiple retries.")
+                        raise
+                else:
+                    logger.error(f"An unexpected error occurred while starting polling: {e}")
+                    raise
 
         # Start web torrent processor in background
         asyncio.create_task(self.web_processor.start())
