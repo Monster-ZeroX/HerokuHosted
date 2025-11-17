@@ -26,7 +26,7 @@
                     <div class="d-flex align-items-start justify-content-between mb-3">
                         <div>
                             <h5 class="fw-semibold mb-1">{{ plan.label }}</h5>
-                            <small class="text-muted">Billed monthly</small>
+                            <small class="text-muted">30-day access</small>
                         </div>
                         <div class="text-end">
                             <div class="fs-4 fw-bold">{{ plan.price_display }}</div>
@@ -35,7 +35,7 @@
                     <ul class="list-unstyled flex-grow-1 small text-muted mb-3">
                         <li class="mb-2"><i class="bi bi-check2 text-success"></i> Priority processing</li>
                         <li class="mb-2"><i class="bi bi-check2 text-success"></i> {{ plan.label }}</li>
-                        <li class="mb-2"><i class="bi bi-check2 text-success"></i> Auto-renews monthly</li>
+                        <li class="mb-2"><i class="bi bi-check2 text-success"></i> Valid for 30 days (no auto-renew)</li>
                     </ul>
                     <form method="post" action="{{ url_for('start_upgrade') }}">
                         <input type="hidden" name="plan" value="{{ key }}" />

@@ -155,23 +155,23 @@
       "required": false
     },
     "GENIE_CURRENCY": {
-      "description": "Currency code used for paid plans (defaults to USD).",
-      "value": "USD",
+      "description": "Currency code used for paid plans (defaults to LKR).",
+      "value": "LKR",
       "required": false
     },
-    "PLAN_100_PRICE_USD": {
-      "description": "Override price (USD) for the 100GB/day plan (defaults to $1).",
-      "value": "1",
+    "PLAN_100_PRICE_LKR": {
+      "description": "Override price (LKR) for the 100GB/day plan (defaults to 300).",
+      "value": "300",
       "required": false
     },
-    "PLAN_300_PRICE_USD": {
-      "description": "Override price (USD) for the 300GB/day plan (defaults to $2).",
-      "value": "2",
+    "PLAN_300_PRICE_LKR": {
+      "description": "Override price (LKR) for the 300GB/day plan (defaults to 600).",
+      "value": "600",
       "required": false
     },
-    "PLAN_UNLIMITED_PRICE_USD": {
-      "description": "Override price (USD) for the unlimited plan (defaults to $3).",
-      "value": "3",
+    "PLAN_UNLIMITED_PRICE_LKR": {
+      "description": "Override price (LKR) for the unlimited plan (defaults to 1200).",
+      "value": "1200",
       "required": false
     },
     "MEGA_EMAIL": {

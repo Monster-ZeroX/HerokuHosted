@@ -34,7 +34,7 @@ allowed_origins = set(filter(None, os.environ.get('ALLOWED_ORIGINS', '').split('
 GENIE_API_KEY = os.environ.get('GENIE_API_KEY')
 GENIE_MERCHANT_ID = os.environ.get('GENIE_MERCHANT_ID')
 GENIE_API_BASE = os.environ.get('GENIE_API_BASE', 'https://api.geniebusiness.com/connect')
-GENIE_CURRENCY = os.environ.get('GENIE_CURRENCY', 'USD')
+GENIE_CURRENCY = os.environ.get('GENIE_CURRENCY', 'LKR')
 GENIE_CREATE_PAYMENT_URL = os.environ.get('GENIE_CREATE_PAYMENT_URL')
 GENIE_PAYMENT_STATUS_URL = os.environ.get('GENIE_PAYMENT_STATUS_URL')
 
@@ -45,17 +45,17 @@ def _gb_to_bytes(gb: float) -> int:
 PAID_PLANS = {
     'plus100': {
         'label': '100GB / day',
-        'price': float(os.environ.get('PLAN_100_PRICE_USD', '1')),
+        'price': float(os.environ.get('PLAN_100_PRICE_LKR', '300')),
         'limit_bytes': _gb_to_bytes(100),
     },
     'plus300': {
         'label': '300GB / day',
-        'price': float(os.environ.get('PLAN_300_PRICE_USD', '2')),
+        'price': float(os.environ.get('PLAN_300_PRICE_LKR', '600')),
         'limit_bytes': _gb_to_bytes(300),
     },
     'unlimited': {
         'label': 'Unlimited per day',
-        'price': float(os.environ.get('PLAN_UNLIMITED_PRICE_USD', '3')),
+        'price': float(os.environ.get('PLAN_UNLIMITED_PRICE_LKR', '1200')),
         'limit_bytes': 0,
     },
 }
@@ -478,7 +478,7 @@ def upgrade():
     plan_context = {
         key: {
             **details,
-            'price_display': f"${details['price']:.2f}/mo",
+            'price_display': f"{GENIE_CURRENCY} {details['price']:.0f} / 30 days",
             'limit_gb': None if details['limit_bytes'] == 0 else round(details['limit_bytes'] / (1024 ** 3)),
         }
         for key, details in PAID_PLANS.items()
@@ -590,7 +590,19 @@ def dashboard():
         'has_limit': current_user.daily_limit > 0 if current_user.daily_limit else False
     }
 
-    return render_template('dashboard.html', torrents=torrents, usage_stats=usage_stats)
+    subscription_info = None
+    if current_user.subscription_plan and current_user.subscription_expires_at:
+        remaining = current_user.subscription_expires_at - datetime.utcnow()
+        if remaining.total_seconds() > 0:
+            plan_details = PAID_PLANS.get(current_user.subscription_plan, {})
+            subscription_info = {
+                'label': plan_details.get('label', current_user.subscription_plan),
+                'expires_at': current_user.subscription_expires_at,
+                'days_left': remaining.days,
+                'hours_left': int((remaining.total_seconds() % 86400) // 3600),
+            }
+
+    return render_template('dashboard.html', torrents=torrents, usage_stats=usage_stats, subscription_info=subscription_info)
 
 
 @app.route('/add-torrent', methods=['GET', 'POST'])
