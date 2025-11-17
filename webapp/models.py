@@ -3,8 +3,10 @@ Database models for the web application.
 """
 import os
 from datetime import datetime
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
@@ -195,10 +197,33 @@ class InviteCode(db.Model):
 
 
 def init_db(app):
-    """Initialize database with default data."""
+    """Initialize database with default data and apply safe migrations."""
     db.init_app(app)
 
+    def apply_safe_migrations():
+        """Ensure critical columns exist to keep the app running after deploys."""
+        migrations = [
+            ("users.total_downloaded", "ALTER TABLE users ADD COLUMN IF NOT EXISTS total_downloaded BIGINT DEFAULT 0"),
+            ("users.daily_downloaded", "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_downloaded BIGINT DEFAULT 0"),
+            ("users.last_reset_date", "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_reset_date DATE DEFAULT CURRENT_DATE"),
+            ("users.daily_limit", "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_limit BIGINT DEFAULT 0"),
+            ("invite_codes.daily_download_limit", "ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS daily_download_limit BIGINT DEFAULT 0"),
+            ("torrents.download_rate", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS download_rate FLOAT DEFAULT 0"),
+            ("torrents.eta_seconds", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS eta_seconds INTEGER"),
+            ("torrents.selection_mode", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS selection_mode VARCHAR(20) DEFAULT 'all'"),
+            ("torrents.selected_file_indices", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS selected_file_indices TEXT"),
+        ]
+
+        with db.engine.begin() as conn:
+            for label, statement in migrations:
+                try:
+                    conn.execute(text(statement))
+                    print(f"  ✓ ensured {label}")
+                except Exception as exc:
+                    print(f"  - skipped {label}: {exc}")
+
     with app.app_context():
+        apply_safe_migrations()
         db.create_all()
 
         # Admin credentials can be configured via environment variables
