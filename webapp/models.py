@@ -2,7 +2,8 @@
 Database models for the web application.
 """
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -31,6 +32,11 @@ class User(UserMixin, db.Model):
     # Daily download limit (in bytes, 0 = unlimited)
     daily_limit = db.Column(db.BigInteger, default=0)
 
+    # Subscription details
+    base_daily_limit = db.Column(db.BigInteger, default=0)
+    subscription_plan = db.Column(db.String(50))
+    subscription_expires_at = db.Column(db.DateTime)
+
     # Relationships
     torrents = db.relationship('Torrent', backref='user', lazy=True, cascade='all, delete-orphan')
 
@@ -49,6 +55,7 @@ class User(UserMixin, db.Model):
             self.daily_downloaded = 0
             self.last_reset_date = today
             db.session.commit()
+        self.ensure_subscription_is_current()
 
     def add_download_usage(self, bytes_downloaded):
         """Add to download usage tracking."""
@@ -92,11 +99,30 @@ class User(UserMixin, db.Model):
         """Get remaining daily quota in GB."""
         self.reset_daily_usage_if_needed()
 
+        # Downgrade expired subscriptions before calculating
+        self.ensure_subscription_is_current()
+
         if self.is_admin or not self.daily_limit:
             return None  # Unlimited
 
         remaining = self.daily_limit - (self.daily_downloaded or 0)
         return max(0, round(remaining / (1024 ** 3), 2))
+
+    def ensure_subscription_is_current(self):
+        """Revert to base limits when a paid plan expires."""
+        if self.subscription_expires_at and datetime.utcnow() > self.subscription_expires_at:
+            self.subscription_plan = None
+            self.subscription_expires_at = None
+            if self.base_daily_limit is not None:
+                self.daily_limit = self.base_daily_limit or 0
+            db.session.commit()
+
+    def apply_subscription(self, plan_key: str, new_limit_bytes: int, duration_days: int = 30):
+        """Set a paid tier for the user."""
+        self.subscription_plan = plan_key
+        self.subscription_expires_at = datetime.utcnow() + timedelta(days=duration_days)
+        self.daily_limit = new_limit_bytes
+        db.session.commit()
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -196,6 +222,39 @@ class InviteCode(db.Model):
         return f'<InviteCode {self.code}>'
 
 
+class PaymentTransaction(db.Model):
+    """Tracks upgrade payments initiated through Genie Business Connect."""
+
+    __tablename__ = 'payment_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    plan_key = db.Column(db.String(50), nullable=False)
+    amount_cents = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(10), default='USD')
+    status = db.Column(db.String(20), default='pending')  # pending, paid, failed
+    reference = db.Column(db.String(100), unique=True, nullable=False)
+    gateway_payment_id = db.Column(db.String(100))
+    raw_response = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('payments', lazy=True))
+
+    def mark_paid(self):
+        self.status = 'paid'
+        db.session.commit()
+
+    def mark_failed(self, reason: Optional[str] = None):
+        self.status = 'failed'
+        if reason:
+            self.raw_response = reason
+        db.session.commit()
+
+    def __repr__(self):
+        return f'<PaymentTransaction {self.reference} ({self.status})>'
+
+
 def init_db(app):
     """Initialize database with default data and apply safe migrations."""
     db.init_app(app)
@@ -212,6 +271,9 @@ def init_db(app):
             ("torrents.eta_seconds", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS eta_seconds INTEGER"),
             ("torrents.selection_mode", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS selection_mode VARCHAR(20) DEFAULT 'all'"),
             ("torrents.selected_file_indices", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS selected_file_indices TEXT"),
+            ("users.base_daily_limit", "ALTER TABLE users ADD COLUMN IF NOT EXISTS base_daily_limit BIGINT DEFAULT 0"),
+            ("users.subscription_plan", "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50)"),
+            ("users.subscription_expires_at", "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP"),
         ]
 
         with db.engine.begin() as conn:
@@ -221,6 +283,13 @@ def init_db(app):
                     print(f"  ✓ ensured {label}")
                 except Exception as exc:
                     print(f"  - skipped {label}: {exc}")
+
+            # Seed base_daily_limit for existing users if missing
+            try:
+                conn.execute(text("UPDATE users SET base_daily_limit = COALESCE(base_daily_limit, daily_limit, 0) WHERE base_daily_limit IS NULL"))
+                print("  ✓ synced base_daily_limit defaults")
+            except Exception as exc:
+                print(f"  - skipped base_daily_limit sync: {exc}")
 
     with app.app_context():
         apply_safe_migrations()

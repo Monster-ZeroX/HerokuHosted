@@ -143,6 +143,12 @@
             color: var(--apple-green);
         }
 
+        .bg-glass {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
+        }
+
         .btn {
             font-weight: 500;
             font-size: 15px;
@@ -486,6 +492,11 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('add_mega') }}">
                                 <i class="bi bi-cloud-download"></i> Mega.nz
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('upgrade') }}">
+                                <i class="bi bi-lightning-charge"></i> Upgrade
                             </a>
                         </li>
                         <li class="nav-item">

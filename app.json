@@ -133,6 +133,47 @@
       "description": "Alternate TMDB v4 bearer token env name supported by the app.",
       "required": false
     },
+    "GENIE_API_KEY": {
+      "description": "Genie Business Connect API key used for paid plan upgrades.",
+      "required": false
+    },
+    "GENIE_MERCHANT_ID": {
+      "description": "Merchant ID for Genie Business Connect.",
+      "required": false
+    },
+    "GENIE_API_BASE": {
+      "description": "Base API URL for Genie Business Connect (override if the default endpoint changes).",
+      "value": "https://api.geniebusiness.com/connect",
+      "required": false
+    },
+    "GENIE_CREATE_PAYMENT_URL": {
+      "description": "Optional override for the Genie create payment endpoint if your account uses a different path.",
+      "required": false
+    },
+    "GENIE_PAYMENT_STATUS_URL": {
+      "description": "Optional override template for payment status lookups (use {payment_id} in the URL).",
+      "required": false
+    },
+    "GENIE_CURRENCY": {
+      "description": "Currency code used for paid plans (defaults to USD).",
+      "value": "USD",
+      "required": false
+    },
+    "PLAN_100_PRICE_USD": {
+      "description": "Override price (USD) for the 100GB/day plan (defaults to $1).",
+      "value": "1",
+      "required": false
+    },
+    "PLAN_300_PRICE_USD": {
+      "description": "Override price (USD) for the 300GB/day plan (defaults to $2).",
+      "value": "2",
+      "required": false
+    },
+    "PLAN_UNLIMITED_PRICE_USD": {
+      "description": "Override price (USD) for the unlimited plan (defaults to $3).",
+      "value": "3",
+      "required": false
+    },
     "MEGA_EMAIL": {
       "description": "Mega.nz premium account email (optional; anonymous mode used if empty).",
       "required": false

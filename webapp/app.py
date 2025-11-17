@@ -8,13 +8,15 @@ import asyncio
 from uuid import uuid4
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from typing import Optional
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from markupsafe import Markup
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from webapp.models import db, User, Torrent, TorrentFile, InviteCode, init_db
+from webapp.models import db, User, Torrent, TorrentFile, InviteCode, PaymentTransaction, init_db
 from webapp.torrent_search import search_torrents
 from torrent import TorrentClient, format_size
 from drive import RcloneManager
@@ -28,6 +30,35 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 allowed_origins = set(filter(None, os.environ.get('ALLOWED_ORIGINS', '').split(',')))
+
+GENIE_API_KEY = os.environ.get('GENIE_API_KEY')
+GENIE_MERCHANT_ID = os.environ.get('GENIE_MERCHANT_ID')
+GENIE_API_BASE = os.environ.get('GENIE_API_BASE', 'https://api.geniebusiness.com/connect')
+GENIE_CURRENCY = os.environ.get('GENIE_CURRENCY', 'USD')
+GENIE_CREATE_PAYMENT_URL = os.environ.get('GENIE_CREATE_PAYMENT_URL')
+GENIE_PAYMENT_STATUS_URL = os.environ.get('GENIE_PAYMENT_STATUS_URL')
+
+def _gb_to_bytes(gb: float) -> int:
+    return int(gb * (1024 ** 3))
+
+
+PAID_PLANS = {
+    'plus100': {
+        'label': '100GB / day',
+        'price': float(os.environ.get('PLAN_100_PRICE_USD', '1')),
+        'limit_bytes': _gb_to_bytes(100),
+    },
+    'plus300': {
+        'label': '300GB / day',
+        'price': float(os.environ.get('PLAN_300_PRICE_USD', '2')),
+        'limit_bytes': _gb_to_bytes(300),
+    },
+    'unlimited': {
+        'label': 'Unlimited per day',
+        'price': float(os.environ.get('PLAN_UNLIMITED_PRICE_USD', '3')),
+        'limit_bytes': 0,
+    },
+}
 
 # Initialize database
 init_db(app)
@@ -52,6 +83,108 @@ def inject_formatters():
         'format_size': format_size,
         'format_eta': format_eta
     }
+
+
+def build_payment_urls():
+    base = GENIE_API_BASE.rstrip('/')
+    create_url = GENIE_CREATE_PAYMENT_URL or f"{base}/payments"
+    status_url_template = GENIE_PAYMENT_STATUS_URL or f"{base}/payments/{{payment_id}}"
+    return create_url, status_url_template
+
+
+def extract_payment_url(response_json: dict):
+    """Return the best available checkout URL from Genie."""
+    if not response_json:
+        return None
+    for key in ('payment_url', 'redirectUrl', 'checkoutUrl', 'url'):
+        if response_json.get(key):
+            return response_json.get(key)
+    data = response_json.get('data') or {}
+    for key in ('payment_url', 'redirectUrl', 'checkoutUrl', 'url'):
+        if data.get(key):
+            return data.get(key)
+    return None
+
+
+def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -> tuple[Optional[str], Optional[str]]:
+    """Create a Genie payment session and return (payment_url, gateway_payment_id)."""
+    if not GENIE_API_KEY or not GENIE_MERCHANT_ID:
+        return None, None
+
+    plan = PAID_PLANS.get(plan_key)
+    create_url, _ = build_payment_urls()
+    payload = {
+        'merchantId': GENIE_MERCHANT_ID,
+        'amount': plan['price'],
+        'currency': GENIE_CURRENCY,
+        'reference': txn.reference,
+        'description': f"Torrent2Drive upgrade: {plan['label']}",
+        'callbackUrl': url_for('genie_webhook', _external=True),
+        'returnUrl': url_for('upgrade_confirm', txn=txn.id, _external=True),
+        'customer': {
+            'id': user.id,
+            'name': user.username,
+            'email': f"{user.username}@example.com",
+        },
+        'metadata': {
+            'user_id': user.id,
+            'plan_key': plan_key,
+            'txn_id': txn.id,
+        }
+    }
+
+    headers = {
+        'Authorization': f"Bearer {GENIE_API_KEY}",
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.post(create_url, json=payload, headers=headers, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+        payment_url = extract_payment_url(data)
+        gateway_id = data.get('payment_id') or data.get('id') or (data.get('data') or {}).get('id')
+        return payment_url, gateway_id
+    except Exception as exc:
+        app.logger.error(f"Genie payment creation failed: {exc}")
+        return None, None
+
+
+def fetch_payment_status(payment_id: str) -> Optional[str]:
+    """Fetch payment status from Genie (returns paid/pending/failed)."""
+    if not GENIE_API_KEY or not payment_id:
+        return None
+
+
+def apply_paid_plan(user: User, plan_key: str):
+    plan = PAID_PLANS.get(plan_key)
+    if not plan:
+        return False
+
+    if user.base_daily_limit is None:
+        user.base_daily_limit = user.daily_limit or 0
+
+    user.apply_subscription(plan_key, plan['limit_bytes'])
+    return True
+
+    _, status_url_template = build_payment_urls()
+    status_url = status_url_template.format(payment_id=payment_id)
+    headers = {
+        'Authorization': f"Bearer {GENIE_API_KEY}",
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.get(status_url, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json() or {}
+        status = data.get('status') or (data.get('data') or {}).get('status')
+        if isinstance(status, str):
+            return status.lower()
+        return None
+    except Exception as exc:
+        app.logger.error(f"Failed to verify payment status: {exc}")
+        return None
 
 
 def extract_submission_metadata(source_path: str):
@@ -106,6 +239,12 @@ def add_cors_headers(response):
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+
+@app.before_request
+def refresh_subscription_state():
+    if current_user.is_authenticated:
+        current_user.ensure_subscription_is_current()
 
 
 @login_manager.user_loader
@@ -163,6 +302,9 @@ def register():
         # Apply download limit from invite code
         if invite.daily_download_limit:
             user.daily_limit = invite.daily_download_limit
+            user.base_daily_limit = invite.daily_download_limit
+        else:
+            user.base_daily_limit = 0
 
         db.session.add(user)
 
@@ -287,7 +429,9 @@ def api_me():
         'is_admin': current_user.is_admin,
         'daily_limit_gb': current_user.get_daily_limit_gb(),
         'daily_usage_gb': current_user.get_daily_usage_gb(),
-        'total_usage_gb': current_user.get_total_usage_gb()
+        'total_usage_gb': current_user.get_total_usage_gb(),
+        'subscription_plan': current_user.subscription_plan,
+        'subscription_expires_at': current_user.subscription_expires_at.isoformat() if current_user.subscription_expires_at else None,
     })
 
 
@@ -320,6 +464,111 @@ def logout():
     """User logout."""
     logout_user()
     return redirect(url_for('index'))
+
+
+@app.route('/upgrade')
+@login_required
+def upgrade():
+    current_user.reset_daily_usage_if_needed()
+
+    recent_txns = PaymentTransaction.query.filter_by(user_id=current_user.id).order_by(
+        PaymentTransaction.created_at.desc()
+    ).limit(10).all()
+
+    plan_context = {
+        key: {
+            **details,
+            'price_display': f"${details['price']:.2f}/mo",
+            'limit_gb': None if details['limit_bytes'] == 0 else round(details['limit_bytes'] / (1024 ** 3)),
+        }
+        for key, details in PAID_PLANS.items()
+    }
+
+    return render_template(
+        'upgrade.html',
+        plans=plan_context,
+        currency=GENIE_CURRENCY,
+        gateway_ready=bool(GENIE_API_KEY and GENIE_MERCHANT_ID),
+        current_plan=current_user.subscription_plan,
+        expires_at=current_user.subscription_expires_at,
+        base_limit_gb=current_user.base_daily_limit / (1024 ** 3) if current_user.base_daily_limit else None,
+        current_limit_gb=current_user.get_daily_limit_gb(),
+        recent_txns=recent_txns,
+    )
+
+
+@app.route('/upgrade/start', methods=['POST'])
+@login_required
+def start_upgrade():
+    plan_key = request.form.get('plan')
+    plan = PAID_PLANS.get(plan_key)
+
+    if not plan:
+        flash('Invalid plan selected', 'danger')
+        return redirect(url_for('upgrade'))
+
+    # Prevent double-purchase of the same active plan
+    if current_user.subscription_plan == plan_key and current_user.subscription_expires_at and current_user.subscription_expires_at > datetime.utcnow():
+        flash('You already have this plan active.', 'info')
+        return redirect(url_for('upgrade'))
+
+    reference = f"txn_{uuid4().hex}"
+    txn = PaymentTransaction(
+        user_id=current_user.id,
+        plan_key=plan_key,
+        amount_cents=int(plan['price'] * 100),
+        currency=GENIE_CURRENCY,
+        reference=reference,
+    )
+    db.session.add(txn)
+    db.session.commit()
+
+    payment_url, gateway_id = create_payment_session(current_user, plan_key, txn)
+    if gateway_id:
+        txn.gateway_payment_id = gateway_id
+        db.session.commit()
+
+    if payment_url:
+        return redirect(payment_url)
+
+    flash('Unable to start payment. Please check Genie API settings.', 'danger')
+    txn.mark_failed('payment_url_missing')
+    return redirect(url_for('upgrade'))
+
+
+@app.route('/upgrade/confirm')
+@login_required
+def upgrade_confirm():
+    txn_id = request.args.get('txn')
+    payment_id = request.args.get('payment_id')
+
+    txn = PaymentTransaction.query.get_or_404(txn_id) if txn_id else None
+    if not txn:
+        flash('Payment not found.', 'danger')
+        return redirect(url_for('upgrade'))
+
+    if txn.user_id != current_user.id and not current_user.is_admin:
+        flash('You do not have permission to view this payment.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    if payment_id and not txn.gateway_payment_id:
+        txn.gateway_payment_id = payment_id
+        db.session.commit()
+
+    status = fetch_payment_status(txn.gateway_payment_id or payment_id)
+    if status in ('paid', 'success', 'completed'):
+        txn.mark_paid()
+        apply_paid_plan(current_user, txn.plan_key)
+        flash('Payment received! Your plan has been upgraded.', 'success')
+        return redirect(url_for('dashboard'))
+
+    if status in ('failed', 'canceled', 'cancelled'):
+        txn.mark_failed(f"status={status}")
+        flash('Payment failed or was canceled.', 'danger')
+        return redirect(url_for('upgrade'))
+
+    flash('Payment is still pending. We will upgrade you automatically once it clears.', 'info')
+    return redirect(url_for('upgrade'))
 
 
 # Dashboard Routes
@@ -472,6 +721,19 @@ def add_torrent():
                 selected_total_size = torrent_info.total_size
             elif fallback_size:
                 selected_total_size = fallback_size
+
+            if selected_total_size and not current_user.can_download(selected_total_size):
+                remaining = current_user.get_remaining_quota_gb()
+                flash(Markup(f"Download exceeds your daily quota. Remaining: {remaining} GB. <a href='{url_for('upgrade')}' class='alert-link'>Upgrade to increase your limit.</a>"), 'danger')
+                return render_template(
+                    'add_torrent.html',
+                    selection_mode=selection_mode,
+                    magnet_link=magnet_link,
+                    uploaded_file_path=uploaded_file_path,
+                    torrent_files=torrent_files,
+                    torrent_name=torrent_name,
+                    total_size=selected_total_size
+                )
 
             # If this torrent already exists on Drive, reuse it instead of downloading again
             existing_torrent = None
@@ -784,7 +1046,7 @@ def add_mega():
             # Check download quota
             if not current_user.can_download(info['size']):
                 remaining = current_user.get_remaining_quota_gb()
-                flash(f'Download exceeds your daily quota. Remaining: {remaining} GB', 'danger')
+                flash(Markup(f"Download exceeds your daily quota. Remaining: {remaining} GB. <a href='{url_for('upgrade')}' class='alert-link'>Upgrade to increase your limit.</a>"), 'danger')
                 return render_template('add_mega.html')
 
             # Create torrent entry for Mega download
@@ -806,6 +1068,41 @@ def add_mega():
             flash(f'Error adding Mega.nz download: {str(e)}', 'danger')
 
     return render_template('add_mega.html')
+
+
+@app.route('/webhook/genie', methods=['POST'])
+def genie_webhook():
+    """Webhook for Genie Business Connect payment updates."""
+    data = request.get_json(force=True) or {}
+
+    reference = data.get('reference') or (data.get('metadata') or {}).get('reference')
+    payment_id = data.get('payment_id') or data.get('id')
+    status = (data.get('status') or '').lower()
+    plan_key = (data.get('metadata') or {}).get('plan_key')
+
+    txn = None
+    if reference:
+        txn = PaymentTransaction.query.filter_by(reference=reference).first()
+    if not txn and payment_id:
+        txn = PaymentTransaction.query.filter_by(gateway_payment_id=str(payment_id)).first()
+
+    if not txn:
+        return jsonify({'status': 'ignored'}), 200
+
+    if payment_id and not txn.gateway_payment_id:
+        txn.gateway_payment_id = str(payment_id)
+        db.session.commit()
+
+    if status in ('paid', 'success', 'completed'):
+        txn.mark_paid()
+        apply_paid_plan(txn.user, plan_key or txn.plan_key)
+        return jsonify({'status': 'upgraded'}), 200
+
+    if status in ('failed', 'canceled', 'cancelled'):
+        txn.mark_failed(f"status={status}")
+        return jsonify({'status': 'failed'}), 200
+
+    return jsonify({'status': status or 'pending'}), 200
 
 
 # Admin Routes
@@ -881,11 +1178,13 @@ def admin_set_user_limit(user_id):
     # Convert GB to bytes
     if not daily_limit_gb or daily_limit_gb == '0':
         user.daily_limit = 0  # Unlimited
+        user.base_daily_limit = 0
         flash(f'Download limit removed for {user.username} (Unlimited)', 'success')
     else:
         try:
             daily_limit_bytes = int(float(daily_limit_gb) * (1024 ** 3))
             user.daily_limit = daily_limit_bytes
+            user.base_daily_limit = daily_limit_bytes
             flash(f'Daily limit set to {daily_limit_gb} GB for {user.username}', 'success')
         except ValueError:
             flash('Invalid limit value', 'danger')

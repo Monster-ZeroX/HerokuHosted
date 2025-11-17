@@ -11,6 +11,10 @@ Recent updates added new columns to the database for usage tracking and torrent 
 - `torrents.eta_seconds`
 - `torrents.selection_mode`
 - `torrents.selected_file_indices`
+- `users.base_daily_limit`
+- `users.subscription_plan`
+- `users.subscription_expires_at`
+- `payment_transactions` table (for paid plan purchases)
 
 These columns need to be added to the existing Heroku PostgreSQL database.
 
@@ -39,8 +43,9 @@ python migrate_db.py
 The `migrate_db.py` script:
 1. Connects to your PostgreSQL database
 2. Adds new columns using `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
-3. Sets default values for existing rows (0 for numeric columns, CURRENT_DATE for date columns)
-4. Commits the changes
+3. Creates the `payment_transactions` table if it does not exist
+4. Sets default values for existing rows (0 for numeric columns, CURRENT_DATE for date columns)
+5. Commits the changes
 
 ## After Migration
 

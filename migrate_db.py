@@ -68,6 +68,33 @@ def run_migration():
         except Exception as e:
             print(f"  - daily_limit: {e}")
 
+        try:
+            conn.execute(text("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS base_daily_limit BIGINT DEFAULT 0
+            """))
+            print("  ✓ Added base_daily_limit column")
+        except Exception as e:
+            print(f"  - base_daily_limit: {e}")
+
+        try:
+            conn.execute(text("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50)
+            """))
+            print("  ✓ Added subscription_plan column")
+        except Exception as e:
+            print(f"  - subscription_plan: {e}")
+
+        try:
+            conn.execute(text("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP
+            """))
+            print("  ✓ Added subscription_expires_at column")
+        except Exception as e:
+            print(f"  - subscription_expires_at: {e}")
+
         # Add columns to invite_codes table
         print("\nAdding columns to invite_codes table...")
 
@@ -118,6 +145,27 @@ def run_migration():
             print("  ✓ Added selected_file_indices column")
         except Exception as e:
             print(f"  - selected_file_indices: {e}")
+
+        print("\nEnsuring payment_transactions table exists...")
+        try:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS payment_transactions (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    plan_key VARCHAR(50) NOT NULL,
+                    amount_cents INTEGER NOT NULL,
+                    currency VARCHAR(10) DEFAULT 'USD',
+                    status VARCHAR(20) DEFAULT 'pending',
+                    reference VARCHAR(100) UNIQUE NOT NULL,
+                    gateway_payment_id VARCHAR(100),
+                    raw_response TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            print("  ✓ payment_transactions table ready")
+        except Exception as e:
+            print(f"  - payment_transactions: {e}")
 
         conn.commit()
         print("\n✓ Migration completed successfully!")
