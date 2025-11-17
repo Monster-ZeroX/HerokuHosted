@@ -32,6 +32,10 @@
                             {{ '%.1f' % torrent.progress }}%
                         </div>
                     </div>
+                    <div class="d-flex justify-content-between text-white-50 mt-2">
+                        <span><i class="bi bi-speedometer"></i> {{ torrent.download_rate and format_size(torrent.download_rate) or 'N/A' }}</span>
+                        <span><i class="bi bi-hourglass-split"></i> {{ format_eta(torrent.eta_seconds) or 'Calculating...' }}</span>
+                    </div>
                 </div>
                 {% endif %}
 
@@ -132,6 +136,24 @@
                 </div>
             </div>
         </div>
+
+        {% if tmdb_info %}
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex">
+                    {% if tmdb_info.poster_url %}
+                    <img src="{{ tmdb_info.poster_url }}" alt="{{ tmdb_info.title }} poster" class="me-3 rounded" style="width: 120px;">
+                    {% endif %}
+                    <div>
+                        <h5 class="text-white mb-1">{{ tmdb_info.title }}</h5>
+                        <p class="text-white-50 mb-1">{{ tmdb_info.release_date }}</p>
+                        <p class="mb-2"><span class="badge bg-success"><i class="bi bi-star-fill"></i> {{ tmdb_info.rating }}</span></p>
+                        <p class="text-white-50 mb-0">{{ tmdb_info.overview }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {% if torrent.status in ['downloading', 'uploading', 'queued'] %}
         <div class="card mt-3">

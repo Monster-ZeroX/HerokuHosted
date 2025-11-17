@@ -53,6 +53,7 @@
         [data-theme="dark"] {
             --apple-gray-light: #2C2C2E;
             --apple-gray-bg: #000000;
+            --apple-gray: #E5E5EA;
             --apple-border: rgba(255, 255, 255, 0.1);
             --apple-shadow: rgba(0, 0, 0, 0.3);
             --apple-shadow-hover: rgba(0, 0, 0, 0.5);
@@ -61,11 +62,11 @@
             --bg-primary: #000000;
             --bg-secondary: #1C1C1E;
             --text-primary: #F5F5F7;
-            --text-secondary: #E0E0E0;
-            --border-color: rgba(255, 255, 255, 0.1);
+            --text-secondary: #FFFFFF;
+            --border-color: rgba(255, 255, 255, 0.2);
             --navbar-bg: rgba(28, 28, 30, 0.8);
             --card-bg: #1C1C1E;
-            --input-bg: #2C2C2E;
+            --input-bg: rgba(255, 255, 255, 0.08);
         }
 
         * {
@@ -136,6 +137,16 @@
 
         .card-body {
             padding: 1.5rem;
+        }
+
+        .accent-heading {
+            color: var(--apple-green);
+        }
+
+        .bg-glass {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
         }
 
         .btn {
@@ -297,8 +308,43 @@
             color: var(--text-secondary) !important;
         }
 
+        .text-bright {
+            color: var(--text-primary) !important;
+        }
+
+        .text-bright-soft {
+            color: var(--text-primary) !important;
+            opacity: 0.9;
+        }
+
         .text-muted {
             color: var(--text-secondary) !important;
+        }
+
+        [data-theme="dark"] .card-header,
+        [data-theme="dark"] .card-title,
+        [data-theme="dark"] .table thead th {
+            color: #FFFFFF !important;
+        }
+
+        [data-theme="dark"] .form-label,
+        [data-theme="dark"] label,
+        [data-theme="dark"] small,
+        [data-theme="dark"] .form-text,
+        [data-theme="dark"] .text-muted,
+        [data-theme="dark"] .text-secondary,
+        [data-theme="dark"] .card-body p,
+        [data-theme="dark"] .card-body li,
+        [data-theme="dark"] .card-body .lead,
+        [data-theme="dark"] input,
+        [data-theme="dark"] textarea,
+        [data-theme="dark"] select {
+            color: #FFFFFF !important;
+        }
+
+        [data-theme="dark"] ::placeholder {
+            color: #FFFFFF !important;
+            opacity: 0.85;
         }
 
         footer {
@@ -336,10 +382,36 @@
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
+        .form-control {
+            background: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border: 1.5px solid var(--border-color);
+        }
+
+        .form-control:focus {
+            color: var(--text-primary) !important;
+            background: var(--input-bg) !important;
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+            outline: none;
+        }
+
+        .input-group-text {
+            background: var(--input-bg) !important;
+            border: 1.5px solid var(--border-color);
+            color: var(--text-primary) !important;
+        }
+
         input:focus, textarea:focus, select:focus {
             border-color: var(--apple-blue);
             box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
             outline: none;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
 
         /* Theme toggle button */
@@ -426,6 +498,16 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('add_mega') }}">
                                 <i class="bi bi-cloud-download"></i> Mega.nz
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('upgrade') }}">
+                                <i class="bi bi-lightning-charge"></i> Upgrade
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('report_problem') }}">
+                                <i class="bi bi-flag"></i> Report a Problem
                             </a>
                         </li>
                         {% if current_user.is_admin %}

@@ -35,9 +35,30 @@
       "description": "Your Telegram Bot Token from @BotFather",
       "required": true
     },
+    "ADMIN_USERNAME": {
+      "description": "Admin username for the built-in web user. Defaults to MonsterZeroX if not set.",
+      "required": false
+    },
+    "ADMIN_PASSWORD": {
+      "description": "Admin password for the built-in web user. Defaults to Kaveesha@2005 if not set.",
+      "required": false
+    },
+    "DEFAULT_INVITE_CODE": {
+      "description": "Invite code automatically created for first-time setup. Defaults to Kaveesha if not set.",
+      "required": false
+    },
+    "ALLOWED_ORIGINS": {
+      "description": "Comma-separated list of origins allowed for CORS (useful for the Next.js frontend).",
+      "required": false
+    },
     "RCLONE_CONFIG": {
       "description": "Your rclone.conf file content (entire file as a single value). Encode this properly or use base64 if needed.",
       "required": true
+    },
+    "RCLONE_CONFIG_PATH": {
+      "description": "Filesystem path where the rclone config will be written. Defaults to /app/rclone.conf.",
+      "value": "/app/rclone.conf",
+      "required": false
     },
     "RCLONE_REMOTE_NAME": {
       "description": "The name of your rclone remote (e.g., 'gdrive' if your rclone.conf has [gdrive])",
@@ -90,6 +111,87 @@
     "LOG_LEVEL": {
       "description": "Logging level (DEBUG, INFO, WARNING, ERROR)",
       "value": "INFO",
+      "required": false
+    },
+    "DATABASE_URL": {
+      "description": "Full database connection string. Heroku Postgres will populate this automatically.",
+      "required": false
+    },
+    "TMDB_API_KEY": {
+      "description": "TMDB v3 API key (set either this or TMDB_API).",
+      "required": false
+    },
+    "TMDB_API": {
+      "description": "Alternate TMDB v3 API key env name supported by the app.",
+      "required": false
+    },
+    "TMDB_BEARER": {
+      "description": "TMDB v4 bearer token (auto-prefixed if missing Bearer).",
+      "required": false
+    },
+    "TMDB_TOKEN": {
+      "description": "Alternate TMDB v4 bearer token env name supported by the app.",
+      "required": false
+    },
+    "GENIE_API_KEY": {
+      "description": "Genie Business Connect API key used for paid plan upgrades.",
+      "required": false
+    },
+    "GENIE_MERCHANT_ID": {
+      "description": "Merchant ID for Genie Business Connect.",
+      "required": false
+    },
+    "GENIE_API_BASE": {
+      "description": "Base API URL for Genie Business Connect (override if the default endpoint changes).",
+      "value": "https://api.geniebiz.lk/public/v2",
+      "required": false
+    },
+    "GENIE_CREATE_PAYMENT_URL": {
+      "description": "Optional override for the Genie create payment endpoint if your account uses a different path.",
+      "required": false
+    },
+    "GENIE_PAYMENT_STATUS_URL": {
+      "description": "Optional override template for payment status lookups (use {payment_id} in the URL).",
+      "required": false
+    },
+    "GENIE_CURRENCY": {
+      "description": "Currency code used for paid plans (defaults to LKR).",
+      "value": "LKR",
+      "required": false
+    },
+    "PLAN_100_PRICE_LKR": {
+      "description": "Override price (LKR) for the 100GB/day plan (defaults to 300).",
+      "value": "300",
+      "required": false
+    },
+    "PLAN_300_PRICE_LKR": {
+      "description": "Override price (LKR) for the 300GB/day plan (defaults to 600).",
+      "value": "600",
+      "required": false
+    },
+    "PLAN_UNLIMITED_PRICE_LKR": {
+      "description": "Override price (LKR) for the unlimited plan (defaults to 1200).",
+      "value": "1200",
+      "required": false
+    },
+    "WORKER_API_TOKEN": {
+      "description": "Shared secret the primary app uses to authenticate status callbacks from a remote worker app.",
+      "required": false
+    },
+    "PRIMARY_API_BASE": {
+      "description": "Primary app base URL (e.g., https://your-primary-app.herokuapp.com) for a remote worker to call if you use API-based callbacks instead of a shared database.",
+      "required": false
+    },
+    "MEGA_EMAIL": {
+      "description": "Mega.nz premium account email (optional; anonymous mode used if empty).",
+      "required": false
+    },
+    "MEGA_PASSWORD": {
+      "description": "Mega.nz premium account password (optional; anonymous mode used if empty).",
+      "required": false
+    },
+    "PORT": {
+      "description": "Port for the Flask web server (Heroku sets this automatically).",
       "required": false
     },
     "SECRET_KEY": {
