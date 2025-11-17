@@ -3,6 +3,7 @@ Background torrent processor for web app submissions.
 Monitors database for queued torrents and processes them using the bot's download system.
 """
 import asyncio
+import contextlib
 import logging
 import os
 import shutil
@@ -221,6 +222,7 @@ class WebTorrentProcessor:
 
                 # Step 1: Update status
                 torrent_record.status = 'downloading'
+                torrent_record.progress = 0.0
                 db.session.commit()
 
                 # Step 2: Download from Mega.nz
@@ -229,12 +231,26 @@ class WebTorrentProcessor:
 
                 # Download file using MegaDownloader (runs in executor to avoid blocking)
                 loop = asyncio.get_event_loop()
-                download_result = await loop.run_in_executor(
-                    None,
-                    self.mega_downloader.download,
-                    mega_link,
-                    str(download_dir)
+                progress_task = asyncio.create_task(
+                    self.track_mega_download_progress(
+                        torrent_record.id,
+                        download_dir,
+                        torrent_record.total_size or 0
+                    )
                 )
+
+                try:
+                    download_result = await loop.run_in_executor(
+                        None,
+                        self.mega_downloader.download,
+                        mega_link,
+                        str(download_dir)
+                    )
+                finally:
+                    if progress_task:
+                        progress_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await progress_task
 
                 if not download_result.get('success'):
                     raise Exception(download_result.get('error', 'Unknown error'))
@@ -266,14 +282,14 @@ class WebTorrentProcessor:
 
                 # Update torrent record
                 torrent_record.total_size = total_size
-                torrent_record.progress = 100.0
+                torrent_record.progress = 50.0
                 db.session.commit()
 
                 logger.info(f"Mega.nz download completed: {download_path}")
 
                 # Step 3: Upload to Google Drive
                 torrent_record.status = 'uploading'
-                torrent_record.progress = 0.0
+                torrent_record.progress = 50.0
                 db.session.commit()
 
                 folder_name = torrent_record.name or download_path.name
@@ -318,6 +334,36 @@ class WebTorrentProcessor:
 
             finally:
                 self.processing_hashes.discard(torrent_id)
+
+    async def track_mega_download_progress(self, torrent_id: int, download_dir: Path, expected_size: int):
+        """Poll download directory size to surface Mega.nz progress on the web UI."""
+        from webapp.app import app
+
+        try:
+            while True:
+                await asyncio.sleep(2)
+
+                if not download_dir.exists():
+                    continue
+
+                downloaded = sum(
+                    f.stat().st_size for f in download_dir.rglob('*') if f.is_file()
+                )
+
+                if expected_size <= 0:
+                    # Unknown size — indicate activity without overstating progress
+                    progress = 10.0 if downloaded > 0 else 0.0
+                else:
+                    progress = min(50.0, (downloaded / expected_size) * 50.0)
+
+                with app.app_context():
+                    rec = Torrent.query.get(torrent_id)
+                    if not rec or rec.status != 'downloading':
+                        return
+                    rec.progress = max(rec.progress or 0.0, progress)
+                    db.session.commit()
+        except asyncio.CancelledError:
+            raise
 
     async def download_torrent(self, torrent_info, torrent_record, selected_indices=None) -> Path:
         """Download torrent files."""
