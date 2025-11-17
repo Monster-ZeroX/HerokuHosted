@@ -357,16 +357,36 @@
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .input-group-text {
-            background: var(--input-bg);
+        .form-control {
+            background: var(--input-bg) !important;
+            color: var(--text-primary) !important;
             border: 1.5px solid var(--border-color);
-            color: var(--text-primary);
+        }
+
+        .form-control:focus {
+            color: var(--text-primary) !important;
+            background: var(--input-bg) !important;
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+            outline: none;
+        }
+
+        .input-group-text {
+            background: var(--input-bg) !important;
+            border: 1.5px solid var(--border-color);
+            color: var(--text-primary) !important;
         }
 
         input:focus, textarea:focus, select:focus {
             border-color: var(--apple-blue);
             box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
             outline: none;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
 
         /* Theme toggle button */
