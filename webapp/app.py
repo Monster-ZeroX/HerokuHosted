@@ -135,7 +135,10 @@ def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -
         # The public v2 transactions endpoint expects only core payment fields. Supplying
         # optional identifiers like merchantId/reference/callbackUrl triggers a 400 with
         # "property ... should not exist", so stick to the minimal contract.
-        'amount': plan['price'],
+        #
+        # Genie treats the amount value as cents, so convert LKR rupees to cents to avoid
+        # showing "Rs 3" instead of "Rs 300" for a 300 LKR plan.
+        'amount': int(plan['price'] * 100),
         'currency': GENIE_CURRENCY,
     }
     # Keep a local correlation ID when allowed without violating the schema. If Genie
