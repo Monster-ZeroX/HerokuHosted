@@ -33,7 +33,7 @@ allowed_origins = set(filter(None, os.environ.get('ALLOWED_ORIGINS', '').split('
 
 GENIE_API_KEY = os.environ.get('GENIE_API_KEY')
 GENIE_MERCHANT_ID = os.environ.get('GENIE_MERCHANT_ID')
-GENIE_API_BASE = os.environ.get('GENIE_API_BASE', 'https://api.geniebusiness.com/connect')
+GENIE_API_BASE = os.environ.get('GENIE_API_BASE', 'https://api.geniebiz.lk/public/v2')
 GENIE_CURRENCY = os.environ.get('GENIE_CURRENCY', 'LKR')
 GENIE_CREATE_PAYMENT_URL = os.environ.get('GENIE_CREATE_PAYMENT_URL')
 GENIE_PAYMENT_STATUS_URL = os.environ.get('GENIE_PAYMENT_STATUS_URL')
@@ -87,9 +87,26 @@ def inject_formatters():
 
 def build_payment_urls():
     base = GENIE_API_BASE.rstrip('/')
-    create_url = GENIE_CREATE_PAYMENT_URL or f"{base}/payments"
-    status_url_template = GENIE_PAYMENT_STATUS_URL or f"{base}/payments/{{payment_id}}"
+    create_url = GENIE_CREATE_PAYMENT_URL or f"{base}/transactions"
+    status_url_template = GENIE_PAYMENT_STATUS_URL or f"{base}/transactions/{{payment_id}}"
     return create_url, status_url_template
+
+
+def _genie_headers():
+    if not GENIE_API_KEY:
+        return None
+    token = GENIE_API_KEY.strip()
+    # Some Genie environments expect the raw API key (no Bearer prefix), while others
+    # require an explicit scheme. Respect whatever was provided.
+    if re.match(r"^(bearer|basic)\s", token, re.IGNORECASE):
+        auth_value = token
+    else:
+        auth_value = token
+    return {
+        'Authorization': auth_value,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
 
 
 def extract_payment_url(response_json: dict):
@@ -108,7 +125,8 @@ def extract_payment_url(response_json: dict):
 
 def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -> tuple[Optional[str], Optional[str]]:
     """Create a Genie payment session and return (payment_url, gateway_payment_id)."""
-    if not GENIE_API_KEY or not GENIE_MERCHANT_ID:
+    headers = _genie_headers()
+    if not headers or not GENIE_MERCHANT_ID:
         return None, None
 
     plan = PAID_PLANS.get(plan_key)
@@ -133,11 +151,6 @@ def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -
         }
     }
 
-    headers = {
-        'Authorization': f"Bearer {GENIE_API_KEY}",
-        'Content-Type': 'application/json'
-    }
-
     try:
         response = requests.post(create_url, json=payload, headers=headers, timeout=20)
         response.raise_for_status()
@@ -146,13 +159,34 @@ def create_payment_session(user: User, plan_key: str, txn: PaymentTransaction) -
         gateway_id = data.get('payment_id') or data.get('id') or (data.get('data') or {}).get('id')
         return payment_url, gateway_id
     except Exception as exc:
-        app.logger.error(f"Genie payment creation failed: {exc}")
+        body = None
+        try:
+            body = response.text  # type: ignore[name-defined]
+        except Exception:
+            pass
+        app.logger.error(f"Genie payment creation failed: {exc}{f' | response={body}' if body else ''}")
         return None, None
 
 
 def fetch_payment_status(payment_id: str) -> Optional[str]:
     """Fetch payment status from Genie (returns paid/pending/failed)."""
-    if not GENIE_API_KEY or not payment_id:
+    headers = _genie_headers()
+    if not headers or not payment_id:
+        return None
+
+    _, status_url_template = build_payment_urls()
+    status_url = status_url_template.format(payment_id=payment_id)
+
+    try:
+        response = requests.get(status_url, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json() or {}
+        status = data.get('status') or (data.get('data') or {}).get('status')
+        if isinstance(status, str):
+            return status.lower()
+        return None
+    except Exception as exc:
+        app.logger.error(f"Failed to verify payment status: {exc}")
         return None
 
 
@@ -166,25 +200,6 @@ def apply_paid_plan(user: User, plan_key: str):
 
     user.apply_subscription(plan_key, plan['limit_bytes'])
     return True
-
-    _, status_url_template = build_payment_urls()
-    status_url = status_url_template.format(payment_id=payment_id)
-    headers = {
-        'Authorization': f"Bearer {GENIE_API_KEY}",
-        'Content-Type': 'application/json'
-    }
-
-    try:
-        response = requests.get(status_url, headers=headers, timeout=15)
-        response.raise_for_status()
-        data = response.json() or {}
-        status = data.get('status') or (data.get('data') or {}).get('status')
-        if isinstance(status, str):
-            return status.lower()
-        return None
-    except Exception as exc:
-        app.logger.error(f"Failed to verify payment status: {exc}")
-        return None
 
 
 def extract_submission_metadata(source_path: str):

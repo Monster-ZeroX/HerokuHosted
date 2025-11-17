@@ -135,7 +135,8 @@ HerokuHosted/
 7. **Use Telegram bot**: Open your Telegram bot and send `/start`
 
 **Payment (Genie Business Connect) config vars:**
-- `GENIE_API_KEY` and `GENIE_MERCHANT_ID` – required to create checkout sessions
+- `GENIE_API_KEY` and `GENIE_MERCHANT_ID` – required to create checkout sessions (set `GENIE_API_KEY` to the exact Authorization value your Genie dashboard provides, e.g., `Bearer abc123` or the raw key)
+- `GENIE_API_BASE` – defaults to `https://api.geniebiz.lk/public/v2` (override if your merchant uses a different host/path)
 - `GENIE_CURRENCY` – defaults to `LKR`
 - `PLAN_100_PRICE_LKR`, `PLAN_300_PRICE_LKR`, `PLAN_UNLIMITED_PRICE_LKR` – override default plan prices (300/600/1200 LKR for 30 days)
 
