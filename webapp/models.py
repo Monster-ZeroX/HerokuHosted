@@ -2,9 +2,12 @@
 Database models for the web application.
 """
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
@@ -29,6 +32,11 @@ class User(UserMixin, db.Model):
     # Daily download limit (in bytes, 0 = unlimited)
     daily_limit = db.Column(db.BigInteger, default=0)
 
+    # Subscription details
+    base_daily_limit = db.Column(db.BigInteger, default=0)
+    subscription_plan = db.Column(db.String(50))
+    subscription_expires_at = db.Column(db.DateTime)
+
     # Relationships
     torrents = db.relationship('Torrent', backref='user', lazy=True, cascade='all, delete-orphan')
 
@@ -47,6 +55,7 @@ class User(UserMixin, db.Model):
             self.daily_downloaded = 0
             self.last_reset_date = today
             db.session.commit()
+        self.ensure_subscription_is_current()
 
     def add_download_usage(self, bytes_downloaded):
         """Add to download usage tracking."""
@@ -90,11 +99,43 @@ class User(UserMixin, db.Model):
         """Get remaining daily quota in GB."""
         self.reset_daily_usage_if_needed()
 
+        # Downgrade expired subscriptions before calculating
+        self.ensure_subscription_is_current()
+
         if self.is_admin or not self.daily_limit:
             return None  # Unlimited
 
         remaining = self.daily_limit - (self.daily_downloaded or 0)
         return max(0, round(remaining / (1024 ** 3), 2))
+
+    def ensure_subscription_is_current(self):
+        """Revert to base limits when a paid plan expires."""
+        if self.subscription_expires_at and datetime.utcnow() > self.subscription_expires_at:
+            self.subscription_plan = None
+            self.subscription_expires_at = None
+            if self.base_daily_limit is not None:
+                self.daily_limit = self.base_daily_limit or 0
+            db.session.commit()
+
+    def apply_subscription(self, plan_key: str, new_limit_bytes: int, duration_days: int = 30):
+        """Set a paid tier for the user."""
+        self.subscription_plan = plan_key
+        self.subscription_expires_at = datetime.utcnow() + timedelta(days=duration_days)
+        self.daily_limit = new_limit_bytes
+        db.session.commit()
+
+    @property
+    def is_paid(self) -> bool:
+        """Return True when the user currently has an active paid subscription."""
+        self.ensure_subscription_is_current()
+
+        if not self.subscription_plan:
+            return False
+
+        if self.subscription_expires_at and datetime.utcnow() > self.subscription_expires_at:
+            return False
+
+        return True
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -115,12 +156,28 @@ class Torrent(db.Model):
     gdrive_path = db.Column(db.String(500))
     gdrive_link = db.Column(db.String(500))
     index_link = db.Column(db.String(500))
+    download_rate = db.Column(db.Float, default=0.0)
+    eta_seconds = db.Column(db.Integer)
+    selection_mode = db.Column(db.String(20), default='all')  # all, select
+    selected_file_indices = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
     error_message = db.Column(db.Text)
 
     # File information
     files = db.relationship('TorrentFile', backref='torrent', lazy=True, cascade='all, delete-orphan')
+
+    def selected_indices(self):
+        """Return parsed list of selected file indices (or None for all)."""
+        if self.selection_mode != 'select' or not self.selected_file_indices:
+            return None
+
+        indices = []
+        for part in self.selected_file_indices.split(','):
+            part = part.strip()
+            if part.isdigit():
+                indices.append(int(part))
+        return indices or None
 
     def __repr__(self):
         return f'<Torrent {self.name}>'
@@ -178,11 +235,77 @@ class InviteCode(db.Model):
         return f'<InviteCode {self.code}>'
 
 
+class PaymentTransaction(db.Model):
+    """Tracks upgrade payments initiated through Genie Business Connect."""
+
+    __tablename__ = 'payment_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    plan_key = db.Column(db.String(50), nullable=False)
+    amount_cents = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(10), default='USD')
+    status = db.Column(db.String(20), default='pending')  # pending, paid, failed
+    reference = db.Column(db.String(100), unique=True, nullable=False)
+    gateway_payment_id = db.Column(db.String(100))
+    raw_response = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('payments', lazy=True))
+
+    def mark_paid(self):
+        self.status = 'paid'
+        db.session.commit()
+
+    def mark_failed(self, reason: Optional[str] = None):
+        self.status = 'failed'
+        if reason:
+            self.raw_response = reason
+        db.session.commit()
+
+    def __repr__(self):
+        return f'<PaymentTransaction {self.reference} ({self.status})>'
+
+
 def init_db(app):
-    """Initialize database with default data."""
+    """Initialize database with default data and apply safe migrations."""
     db.init_app(app)
 
+    def apply_safe_migrations():
+        """Ensure critical columns exist to keep the app running after deploys."""
+        migrations = [
+            ("users.total_downloaded", "ALTER TABLE users ADD COLUMN IF NOT EXISTS total_downloaded BIGINT DEFAULT 0"),
+            ("users.daily_downloaded", "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_downloaded BIGINT DEFAULT 0"),
+            ("users.last_reset_date", "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_reset_date DATE DEFAULT CURRENT_DATE"),
+            ("users.daily_limit", "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_limit BIGINT DEFAULT 0"),
+            ("invite_codes.daily_download_limit", "ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS daily_download_limit BIGINT DEFAULT 0"),
+            ("torrents.download_rate", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS download_rate FLOAT DEFAULT 0"),
+            ("torrents.eta_seconds", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS eta_seconds INTEGER"),
+            ("torrents.selection_mode", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS selection_mode VARCHAR(20) DEFAULT 'all'"),
+            ("torrents.selected_file_indices", "ALTER TABLE torrents ADD COLUMN IF NOT EXISTS selected_file_indices TEXT"),
+            ("users.base_daily_limit", "ALTER TABLE users ADD COLUMN IF NOT EXISTS base_daily_limit BIGINT DEFAULT 0"),
+            ("users.subscription_plan", "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50)"),
+            ("users.subscription_expires_at", "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP"),
+        ]
+
+        with db.engine.begin() as conn:
+            for label, statement in migrations:
+                try:
+                    conn.execute(text(statement))
+                    print(f"  ✓ ensured {label}")
+                except Exception as exc:
+                    print(f"  - skipped {label}: {exc}")
+
+            # Seed base_daily_limit for existing users if missing
+            try:
+                conn.execute(text("UPDATE users SET base_daily_limit = COALESCE(base_daily_limit, daily_limit, 0) WHERE base_daily_limit IS NULL"))
+                print("  ✓ synced base_daily_limit defaults")
+            except Exception as exc:
+                print(f"  - skipped base_daily_limit sync: {exc}")
+
     with app.app_context():
+        apply_safe_migrations()
         db.create_all()
 
         # Admin credentials can be configured via environment variables
