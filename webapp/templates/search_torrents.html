@@ -71,8 +71,8 @@
 <!-- Results -->
 {% if results %}
 <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
+    <div class="card-header d-flex justify-content-between align-items-center search-results-header">
+        <h5 class="mb-0 search-results-title">
             <i class="bi bi-check-circle" style="color: var(--apple-green);"></i>
             Showing {{ showing_count }} of {{ total_results }} results for "{{ query }}"
         </h5>
@@ -87,7 +87,7 @@
             <div class="card-body">
                 <div class="row align-items-center">
                     <div class="col-md-6">
-                        <h6 class="mb-2">{{ result.name[:80] }}{% if result.name|length > 80 %}...{% endif %}</h6>
+                        <h6 class="mb-2 torrent-name">{{ result.name[:80] }}{% if result.name|length > 80 %}...{% endif %}</h6>
                         <div class="d-flex gap-3">
                             <small style="color: var(--text-secondary);">
                                 <i class="bi bi-hdd"></i> {{ result.size }}
@@ -173,6 +173,16 @@
     border-radius: 12px;
     padding: 15px 20px;
     font-weight: 600;
+}
+
+.search-results-title,
+.torrent-name {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .search-results-title,
+[data-theme="dark"] .torrent-name {
+    color: #FFFFFF !important;
 }
 </style>
 {% endblock %}
