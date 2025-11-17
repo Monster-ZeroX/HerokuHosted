@@ -10,4 +10,5 @@ gunicorn==21.2.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 Pillow==10.1.0
-pycryptodome==3.19.0
+mega.py==1.0.8
+pathlib==1.0.1
