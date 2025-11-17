@@ -185,12 +185,19 @@ class TorrentClient:
 
         # Wait for download to complete
         last_update = 0
-        while not handle.is_seed():
+        while True:
             status = handle.status()
 
             # Check for errors
             if status.error:
                 raise Exception(f"Download error: {status.error}")
+
+            # Determine completion status (supports partial downloads)
+            finished_bytes = status.total_wanted_done
+            total_wanted = status.total_wanted or torrent_info.total_size
+            is_finished = status.is_seeding or status.state == lt.torrent_status.seeding
+            if not is_finished and total_wanted:
+                is_finished = finished_bytes >= total_wanted
 
             # Update progress
             current_time = time.time()
@@ -198,7 +205,7 @@ class TorrentClient:
                 progress = DownloadProgress(
                     status=status.state.name,
                     downloaded=status.total_done,
-                    total_size=status.total_wanted,
+                    total_size=total_wanted,
                     download_rate=status.download_rate,
                     upload_rate=status.upload_rate,
                     num_peers=status.num_peers,
@@ -207,6 +214,9 @@ class TorrentClient:
                 )
                 await progress_callback(progress)
                 last_update = current_time
+
+            if is_finished:
+                break
 
             await asyncio.sleep(1)
 
