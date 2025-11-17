@@ -2,7 +2,9 @@
 Flask web application for Torrent to Google Drive.
 """
 import os
+import re
 import requests
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -21,6 +23,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+allowed_origins = set(filter(None, os.environ.get('ALLOWED_ORIGINS', '').split(',')))
 
 # Initialize database
 init_db(app)
@@ -46,6 +49,19 @@ def inject_formatters():
         'format_eta': format_eta
     }
 
+
+@app.after_request
+def add_cors_headers(response):
+    """Allow the Next.js frontend to communicate with the API using cookies."""
+    origin = request.headers.get('Origin')
+    if origin and (not allowed_origins or origin in allowed_origins):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Vary'] = 'Origin'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+    return response
+
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -64,6 +80,13 @@ def index():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
+
+
+def require_api_auth():
+    """Guard API endpoints and return a JSON 401 instead of redirect."""
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Unauthorized'}), 401
+    return None
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -137,6 +160,116 @@ def login():
             flash('Invalid username or password', 'danger')
 
     return render_template('login.html')
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    """JSON-friendly login endpoint for the Next.js frontend."""
+    data = request.get_json(silent=True) or {}
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
+        login_user(user, remember=True)
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        return jsonify({
+            'message': 'Login successful',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'is_admin': user.is_admin
+            }
+        })
+
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    if not current_user.is_authenticated:
+        return jsonify({'message': 'Already logged out'})
+    logout_user()
+    return jsonify({'message': 'Logged out'})
+
+
+def serialize_torrent(torrent: Torrent, include_files: bool = False, include_tmdb: bool = False):
+    data = {
+        'id': torrent.id,
+        'name': torrent.name,
+        'status': torrent.status,
+        'progress': torrent.progress,
+        'download_rate': torrent.download_rate,
+        'eta_seconds': torrent.eta_seconds,
+        'gdrive_link': torrent.gdrive_link,
+        'index_link': torrent.index_link,
+        'created_at': torrent.created_at.isoformat() if torrent.created_at else None,
+        'completed_at': torrent.completed_at.isoformat() if torrent.completed_at else None,
+        'total_size': torrent.total_size,
+        'error_message': torrent.error_message
+    }
+
+    if include_files:
+        data['files'] = [
+            {
+                'id': f.id,
+                'file_path': f.file_path,
+                'file_size': f.file_size,
+                'index_link': f.index_link,
+                'gdrive_link': f.gdrive_link,
+            }
+            for f in torrent.files
+        ]
+
+    if include_tmdb:
+        tmdb_query = guess_movie_title(torrent)
+        tmdb_info = get_tmdb_movie_details(tmdb_query) if tmdb_query else None
+        data['tmdb'] = tmdb_info
+
+    return data
+
+
+@app.route('/api/me')
+def api_me():
+    auth_error = require_api_auth()
+    if auth_error:
+        return auth_error
+
+    return jsonify({
+        'id': current_user.id,
+        'username': current_user.username,
+        'is_admin': current_user.is_admin,
+        'daily_limit_gb': current_user.get_daily_limit_gb(),
+        'daily_usage_gb': current_user.get_daily_usage_gb(),
+        'total_usage_gb': current_user.get_total_usage_gb()
+    })
+
+
+@app.route('/api/torrents')
+def api_torrents():
+    auth_error = require_api_auth()
+    if auth_error:
+        return auth_error
+
+    torrents = Torrent.query.filter_by(user_id=current_user.id).order_by(Torrent.created_at.desc()).all()
+    return jsonify([serialize_torrent(t) for t in torrents])
+
+
+@app.route('/api/torrents/<int:torrent_id>')
+def api_torrent_detail(torrent_id):
+    auth_error = require_api_auth()
+    if auth_error:
+        return auth_error
+
+    torrent = Torrent.query.get_or_404(torrent_id)
+    if torrent.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'error': 'Access denied'}), 403
+
+    return jsonify(serialize_torrent(torrent, include_files=True, include_tmdb=True))
 
 
 @app.route('/logout')
@@ -270,6 +403,39 @@ def search_torrents_page():
                          showing_count=len(results))
 
 
+VIDEO_EXTENSIONS = ('.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv')
+
+
+def clean_title(raw_title: str) -> str:
+    """Normalize torrent/movie names before querying TMDB."""
+    if not raw_title:
+        return ''
+
+    # Remove file extension and common separators
+    title = Path(raw_title).name
+    title = os.path.splitext(title)[0]
+    title = title.replace('.', ' ').replace('_', ' ').replace('-', ' ')
+
+    # Remove common release tags
+    tags_pattern = r"\b(720p|1080p|2160p|4k|hdr|x264|x265|bluray|web\-dl|webdl|webrip|hdtv|dvdrip|xvid|hevc|10bit|8bit)\b"
+    title = re.sub(tags_pattern, '', title, flags=re.IGNORECASE)
+
+    # Remove extra spaces
+    title = re.sub(r'\s+', ' ', title).strip()
+    return title
+
+
+def guess_movie_title(torrent):
+    """Determine the best title to query TMDB with."""
+    if torrent.files:
+        for file in torrent.files:
+            if file.file_path.lower().endswith(VIDEO_EXTENSIONS):
+                cleaned = clean_title(file.file_path)
+                if cleaned:
+                    return cleaned
+    return clean_title(torrent.name)
+
+
 def get_tmdb_movie_details(title: str):
     """Fetch movie metadata from TMDB."""
     api_key = os.environ.get('TMDB_API_KEY')
@@ -317,11 +483,12 @@ def torrent_detail(torrent_id):
     is_movie = False
     if torrent.files:
         is_movie = any(
-            file.file_path.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.wmv'))
+            file.file_path.lower().endswith(VIDEO_EXTENSIONS)
             for file in torrent.files
         )
 
-    tmdb_info = get_tmdb_movie_details(torrent.name) if is_movie else None
+    tmdb_query = guess_movie_title(torrent) if is_movie else ''
+    tmdb_info = get_tmdb_movie_details(tmdb_query) if tmdb_query else None
 
     return render_template('torrent_detail.html', torrent=torrent, tmdb_info=tmdb_info)
 
