@@ -4,10 +4,13 @@ Flask web application for Torrent to Google Drive.
 import os
 import re
 import requests
+import asyncio
+from uuid import uuid4
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime
 
 from webapp.models import db, User, Torrent, TorrentFile, InviteCode, init_db
@@ -207,6 +210,8 @@ def serialize_torrent(torrent: Torrent, include_files: bool = False, include_tmd
         'eta_seconds': torrent.eta_seconds,
         'gdrive_link': torrent.gdrive_link,
         'index_link': torrent.index_link,
+        'selection_mode': torrent.selection_mode,
+        'selected_file_indices': torrent.selected_file_indices,
         'created_at': torrent.created_at.isoformat() if torrent.created_at else None,
         'completed_at': torrent.completed_at.isoformat() if torrent.completed_at else None,
         'total_size': torrent.total_size,
@@ -305,29 +310,117 @@ def dashboard():
 @app.route('/add-torrent', methods=['GET', 'POST'])
 @login_required
 def add_torrent():
-    """Add new torrent."""
-    if request.method == 'POST':
-        magnet_link = request.form.get('magnet_link')
+    """Add new torrent with optional file selection."""
 
-        if not magnet_link or not magnet_link.startswith('magnet:'):
-            flash('Invalid magnet link', 'danger')
-            return render_template('add_torrent.html')
+    magnet_link = (request.values.get('magnet_link') or '').strip()
+    selection_mode = request.values.get('selection_mode', 'all')
+    uploaded_file_path = request.values.get('uploaded_file_path', '')
+    torrent_files = []
+    torrent_name = None
+    total_size = None
+
+    if request.method == 'POST':
+        step = request.form.get('step', 'input')
+        selection_mode = request.form.get('selection_mode', selection_mode)
+        magnet_link = (request.form.get('magnet_link') or magnet_link).strip()
+        uploaded_file_path = request.form.get('uploaded_file_path', uploaded_file_path)
+
+        torrent_file = request.files.get('torrent_file')
+        source_path = None
+
+        # Persist uploaded torrent files for later processing
+        if torrent_file and torrent_file.filename:
+            upload_dir = Path(settings.DOWNLOAD_DIR) / 'uploads'
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            filename = secure_filename(torrent_file.filename) or f'{uuid4().hex}.torrent'
+            saved_path = upload_dir / f"{uuid4().hex}_{filename}"
+            torrent_file.save(saved_path)
+            source_path = str(saved_path)
+            uploaded_file_path = source_path
+        elif uploaded_file_path:
+            source_path = uploaded_file_path
+        else:
+            source_path = magnet_link
+
+        if not source_path:
+            flash('Please provide a magnet link or .torrent file', 'danger')
+            return render_template(
+                'add_torrent.html',
+                selection_mode=selection_mode,
+                magnet_link=magnet_link,
+                uploaded_file_path=uploaded_file_path
+            )
+
+        if not source_path.startswith('magnet:') and not Path(source_path).exists():
+            flash('Invalid torrent input. Provide a magnet link or upload a .torrent file.', 'danger')
+            return render_template(
+                'add_torrent.html',
+                selection_mode=selection_mode,
+                magnet_link=magnet_link,
+                uploaded_file_path=uploaded_file_path
+            )
+
+        # Step 1: Allow users to preview and select files
+        if selection_mode == 'select' and step == 'input':
+            try:
+                torrent_client = TorrentClient()
+                torrent_info = asyncio.run(torrent_client.get_torrent_info(source_path))
+                torrent_files = torrent_info.files
+                torrent_name = torrent_info.name
+                total_size = torrent_info.total_size
+
+                return render_template(
+                    'add_torrent.html',
+                    selection_mode=selection_mode,
+                    magnet_link=magnet_link if source_path.startswith('magnet:') else '',
+                    uploaded_file_path=source_path if not source_path.startswith('magnet:') else '',
+                    torrent_files=torrent_files,
+                    torrent_name=torrent_name,
+                    total_size=total_size,
+                    step='confirm'
+                )
+            except Exception as e:
+                flash(f'Error fetching torrent info: {str(e)}', 'danger')
+                return render_template(
+                    'add_torrent.html',
+                    selection_mode=selection_mode,
+                    magnet_link=magnet_link,
+                    uploaded_file_path=uploaded_file_path
+                )
+
+        selected_indices = None
+        if selection_mode == 'select':
+            selected_indices = [int(i) for i in request.form.getlist('selected_files') if i.isdigit()]
+            if not selected_indices:
+                flash('Select at least one file to download', 'danger')
+                try:
+                    torrent_client = TorrentClient()
+                    torrent_info = asyncio.run(torrent_client.get_torrent_info(source_path))
+                    torrent_files = torrent_info.files
+                    torrent_name = torrent_info.name
+                    total_size = torrent_info.total_size
+                except Exception:
+                    torrent_files = []
+                return render_template(
+                    'add_torrent.html',
+                    selection_mode=selection_mode,
+                    magnet_link=magnet_link if source_path.startswith('magnet:') else '',
+                    uploaded_file_path=uploaded_file_path if not source_path.startswith('magnet:') else '',
+                    torrent_files=torrent_files,
+                    torrent_name=torrent_name,
+                    total_size=total_size,
+                    step='confirm'
+                )
 
         try:
-            # Get torrent info
-            torrent_client = TorrentClient()
-            torrent_info = None
-
-            # This would be async in production - simplified for now
-            # torrent_info = await torrent_client.get_torrent_info(magnet_link)
-
-            # Create torrent entry
             torrent = Torrent(
                 user_id=current_user.id,
                 name="Processing...",  # Will be updated when metadata is fetched
                 info_hash="pending",
-                magnet_link=magnet_link,
-                status='queued'
+                magnet_link=source_path,
+                status='queued',
+                selection_mode=selection_mode,
+                selected_file_indices=','.join(str(i) for i in selected_indices) if selected_indices else None
             )
             db.session.add(torrent)
             db.session.commit()
@@ -338,7 +431,15 @@ def add_torrent():
         except Exception as e:
             flash(f'Error adding torrent: {str(e)}', 'danger')
 
-    return render_template('add_torrent.html')
+    return render_template(
+        'add_torrent.html',
+        selection_mode=selection_mode,
+        magnet_link=magnet_link,
+        uploaded_file_path=uploaded_file_path,
+        torrent_files=torrent_files,
+        torrent_name=torrent_name,
+        total_size=total_size
+    )
 
 
 @app.route('/search-torrents', methods=['GET', 'POST'])
@@ -438,7 +539,11 @@ def guess_movie_title(torrent):
 
 def get_tmdb_movie_details(title: str):
     """Fetch movie metadata from TMDB."""
-    api_key = os.environ.get('TMDB_API_KEY')
+    api_key = (
+        os.environ.get('TMDB_API_KEY')
+        or os.environ.get('TMDB_TOKEN')
+        or os.environ.get('TMDB_API')
+    )
     if not api_key or not title:
         return None
 
@@ -480,14 +585,7 @@ def torrent_detail(torrent_id):
         flash('Access denied', 'danger')
         return redirect(url_for('dashboard'))
 
-    is_movie = False
-    if torrent.files:
-        is_movie = any(
-            file.file_path.lower().endswith(VIDEO_EXTENSIONS)
-            for file in torrent.files
-        )
-
-    tmdb_query = guess_movie_title(torrent) if is_movie else ''
+    tmdb_query = guess_movie_title(torrent)
     tmdb_info = get_tmdb_movie_details(tmdb_query) if tmdb_query else None
 
     return render_template('torrent_detail.html', torrent=torrent, tmdb_info=tmdb_info)

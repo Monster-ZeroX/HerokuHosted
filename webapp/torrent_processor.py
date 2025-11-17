@@ -110,10 +110,24 @@ class WebTorrentProcessor:
 
                 torrent_info = await self.torrent_client.get_torrent_info(magnet_link)
 
+                selected_indices = torrent_record.selected_indices()
+                selected_total_size = torrent_info.total_size
+                if selected_indices:
+                    selected_total_size = sum(
+                        f.size for f in torrent_info.files if f.index in selected_indices
+                    )
+
+                if selected_total_size <= 0:
+                    torrent_record.status = 'failed'
+                    torrent_record.error_message = 'No files selected for download'
+                    db.session.commit()
+                    self.processing_hashes.discard(torrent_id)
+                    return
+
                 # Check if user can download this size
-                if not user.can_download(torrent_info.total_size):
+                if not user.can_download(selected_total_size):
                     remaining = user.get_remaining_quota_gb()
-                    logger.warning(f"User {user.username} cannot download {torrent_info.total_size} bytes (remaining: {remaining} GB)")
+                    logger.warning(f"User {user.username} cannot download {selected_total_size} bytes (remaining: {remaining} GB)")
                     torrent_record.status = 'failed'
                     torrent_record.error_message = f'Insufficient quota. Remaining: {remaining} GB'
                     db.session.commit()
@@ -123,13 +137,13 @@ class WebTorrentProcessor:
                 # Update torrent record with metadata
                 torrent_record.info_hash = torrent_info.info_hash
                 torrent_record.name = torrent_info.name
-                torrent_record.total_size = torrent_info.total_size
+                torrent_record.total_size = selected_total_size
                 db.session.commit()
 
                 logger.info(f"Metadata fetched for {torrent_info.name}")
 
-                # Step 2: Download all files (web app doesn't support file selection yet)
-                download_path = await self.download_torrent(torrent_info, torrent_record)
+                # Step 2: Download selected files
+                download_path = await self.download_torrent(torrent_info, torrent_record, selected_indices)
 
                 # Step 3: Upload to Google Drive
                 torrent_record.status = 'uploading'
@@ -151,7 +165,7 @@ class WebTorrentProcessor:
                 with app.app_context():
                     user = User.query.get(torrent_record.user_id)
                     if user:
-                        user.add_download_usage(torrent_info.total_size)
+                        user.add_download_usage(selected_total_size)
 
                 # Step 8: Mark as completed
                 torrent_record.status = 'completed'
@@ -305,7 +319,7 @@ class WebTorrentProcessor:
             finally:
                 self.processing_hashes.discard(torrent_id)
 
-    async def download_torrent(self, torrent_info, torrent_record) -> Path:
+    async def download_torrent(self, torrent_info, torrent_record, selected_indices=None) -> Path:
         """Download torrent files."""
         download_dir = Path(settings.DOWNLOAD_DIR)
         download_dir.mkdir(parents=True, exist_ok=True)
@@ -325,7 +339,7 @@ class WebTorrentProcessor:
         # Download all files
         download_path = await self.torrent_client.download(
             torrent_info.info_hash,
-            selected_indices=None,  # Download all files
+            selected_indices=selected_indices,
             progress_callback=progress_callback
         )
 

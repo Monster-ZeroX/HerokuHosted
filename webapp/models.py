@@ -117,12 +117,26 @@ class Torrent(db.Model):
     index_link = db.Column(db.String(500))
     download_rate = db.Column(db.Float, default=0.0)
     eta_seconds = db.Column(db.Integer)
+    selection_mode = db.Column(db.String(20), default='all')  # all, select
+    selected_file_indices = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
     error_message = db.Column(db.Text)
 
     # File information
     files = db.relationship('TorrentFile', backref='torrent', lazy=True, cascade='all, delete-orphan')
+
+    def selected_indices(self):
+        """Return parsed list of selected file indices (or None for all)."""
+        if self.selection_mode != 'select' or not self.selected_file_indices:
+            return None
+
+        indices = []
+        for part in self.selected_file_indices.split(','):
+            part = part.strip()
+            if part.isdigit():
+                indices.append(int(part))
+        return indices or None
 
     def __repr__(self):
         return f'<Torrent {self.name}>'

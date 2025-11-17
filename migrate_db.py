@@ -101,6 +101,24 @@ def run_migration():
         except Exception as e:
             print(f"  - eta_seconds: {e}")
 
+        try:
+            conn.execute(text("""
+                ALTER TABLE torrents
+                ADD COLUMN IF NOT EXISTS selection_mode VARCHAR(20) DEFAULT 'all'
+            """))
+            print("  ✓ Added selection_mode column")
+        except Exception as e:
+            print(f"  - selection_mode: {e}")
+
+        try:
+            conn.execute(text("""
+                ALTER TABLE torrents
+                ADD COLUMN IF NOT EXISTS selected_file_indices TEXT
+            """))
+            print("  ✓ Added selected_file_indices column")
+        except Exception as e:
+            print(f"  - selected_file_indices: {e}")
+
         conn.commit()
         print("\n✓ Migration completed successfully!")
 
