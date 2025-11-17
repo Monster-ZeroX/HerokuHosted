@@ -646,19 +646,35 @@ def guess_movie_title(torrent):
 
 
 def get_tmdb_movie_details(title: str):
-    """Fetch movie metadata from TMDB."""
-    api_key = (
-        os.environ.get('TMDB_API_KEY')
-        or os.environ.get('TMDB_TOKEN')
-        or os.environ.get('TMDB_API')
-    )
-    if not api_key or not title:
+    """Fetch movie metadata from TMDB.
+
+    Supports both API key (v3) and bearer token (v4) authentication so deployments
+    that only set TMDB_TOKEN keep working. The bearer token is automatically
+    prefixed if the environment variable omits "Bearer ".
+    """
+
+    if not title:
         return None
+
+    api_key = os.environ.get('TMDB_API_KEY') or os.environ.get('TMDB_API')
+    bearer = os.environ.get('TMDB_BEARER') or os.environ.get('TMDB_TOKEN')
+
+    if not api_key and not bearer:
+        return None
+
+    headers = {'Accept': 'application/json'}
+    params = {'query': title, 'include_adult': False}
+
+    if bearer:
+        headers['Authorization'] = bearer if bearer.lower().startswith('bearer ') else f'Bearer {bearer}'
+    elif api_key:
+        params['api_key'] = api_key
 
     try:
         response = requests.get(
             'https://api.themoviedb.org/3/search/movie',
-            params={'api_key': api_key, 'query': title, 'include_adult': False},
+            headers=headers,
+            params=params,
             timeout=10
         )
         response.raise_for_status()
