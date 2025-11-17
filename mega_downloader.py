@@ -36,6 +36,7 @@ class MegaDownloader:
         self.email = email or os.environ.get('MEGA_EMAIL')
         self.password = password or os.environ.get('MEGA_PASSWORD')
         self.mega = None
+        self.enabled = False  # Disabled by default
         self._login()
 
     def _login(self):
@@ -44,23 +45,16 @@ class MegaDownloader:
             self.mega = Mega()
             if self.email and self.password:
                 logger.info(f"Logging into Mega.nz with account: {self.email}")
-                try:
-                    self.mega = self.mega.login(self.email, self.password)
-                    logger.info("Successfully logged into Mega.nz premium account")
-                except Exception as e:
-                    if "Expecting value" in str(e):
-                        logger.error("Failed to login to Mega.nz: The API returned an invalid response. This might be due to incorrect credentials or an issue with the Mega.nz service.")
-                    else:
-                        logger.error(f"An unexpected error occurred during Mega.nz login: {e}")
-                    # Do not continue if login fails
-                    raise
+                self.mega.login(self.email, self.password)
+                logger.info("Successfully logged into Mega.nz premium account")
+                self.enabled = True
             else:
                 logger.warning("No Mega.nz credentials provided, using anonymous mode")
-                # Anonymous mode - no login required, just use public methods
+                self.enabled = True  # Anonymous mode is considered enabled
         except Exception as e:
-            logger.error(f"Failed to initialize Mega session: {e}")
-            # If initialization fails, we can't proceed
-            raise
+            logger.error(f"Failed to login to Mega.nz: {e}. Mega.nz functionality will be disabled.")
+            self.enabled = False
+            # Do not raise exception, just disable the functionality
 
     def parse_mega_link(self, url: str) -> Dict[str, str]:
         """
@@ -72,6 +66,9 @@ class MegaDownloader:
         Returns:
             Dict with 'type' (file/folder) and 'url'
         """
+        if not self.enabled:
+            raise RuntimeError("Mega.nz downloader is not available due to a login failure.")
+        
         url = url.strip()
 
         # File link patterns:
@@ -99,6 +96,9 @@ class MegaDownloader:
         Returns:
             Dict with file name and size
         """
+        if not self.enabled:
+            raise RuntimeError("Mega.nz downloader is not available due to a login failure.")
+            
         try:
             link_info = self.parse_mega_link(url)
 
@@ -139,6 +139,9 @@ class MegaDownloader:
         Returns:
             Path to downloaded file
         """
+        if not self.enabled:
+            raise RuntimeError("Mega.nz downloader is not available due to a login failure.")
+            
         try:
             logger.info(f"Downloading Mega.nz file from: {url}")
             logger.info(f"Destination: {dest_path}")
@@ -168,6 +171,9 @@ class MegaDownloader:
         Returns:
             List of paths to downloaded files
         """
+        if not self.enabled:
+            raise RuntimeError("Mega.nz downloader is not available due to a login failure.")
+            
         try:
             logger.info(f"Downloading Mega.nz folder from: {url}")
             logger.info(f"Destination: {dest_path}")
@@ -206,6 +212,12 @@ class MegaDownloader:
         Returns:
             Dict with download info
         """
+        if not self.enabled:
+            return {
+                'success': False,
+                'error': "Mega.nz downloader is not available due to a login failure."
+            }
+            
         try:
             link_info = self.parse_mega_link(url)
 
