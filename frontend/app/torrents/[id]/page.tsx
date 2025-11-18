@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { GlassCard } from '../../../components/GlassCard';
-import { fetchTorrent } from '../../../lib/api';
+import { api } from '../../../lib/api';
 
 function prettySize(bytes?: number) {
   if (!bytes) return '—';
@@ -15,7 +15,16 @@ function prettySize(bytes?: number) {
 export default function TorrentDetailPage() {
   const params = useParams();
   const id = params?.id as string;
-  const { data: torrent } = useSWR(id ? `torrent-${id}` : null, () => fetchTorrent(id), { refreshInterval: 5000 });
+
+  const { data: torrent } = useSWR(
+    id ? `torrent-${id}` : null,
+    async () => {
+      if (!id) return null;
+      const data = await api.getTorrent(Number(id));
+      return (data as any).job ?? data;
+    },
+    { refreshInterval: 5000 }
+  );
 
   if (!id) return null;
 
