@@ -1,44 +1,37 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5000';
 
-async function apiGet(path: string) {
+async function request(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    ...init,
   });
-
+  const data = await res.json();
   if (!res.ok) {
-    throw new Error(`API request failed: ${res.status}`);
+    throw new Error(data?.error || `API error ${res.status}`);
   }
-
-  return res.json();
+  return data;
 }
 
-async function apiPost(path: string, body: Record<string, any>) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    throw new Error(`API request failed: ${res.status}`);
-  }
-
-  return res.json();
-}
-
-export async function fetchSession() {
-  return apiGet('/api/session');
-}
-
-export async function fetchTorrents() {
-  return apiGet('/api/torrents');
-}
-
-export async function fetchTorrent(id: string) {
-  return apiGet(`/api/torrents/${id}`);
-}
-
-export async function login(username: string, password: string) {
-  return apiPost('/api/login', { username, password });
-}
+export const api = {
+  me: () => request('/api/auth/me'),
+  login: (email_or_username: string, password: string) =>
+    request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email_or_username, password }) }),
+  logout: () => request('/api/auth/logout', { method: 'POST' }),
+  registerStart: (payload: { username: string; email: string; password: string }) =>
+    request('/api/auth/register/start', { method: 'POST', body: JSON.stringify(payload) }),
+  registerVerify: (payload: { email: string; code: string }) =>
+    request('/api/auth/register/verify', { method: 'POST', body: JSON.stringify(payload) }),
+  passwordResetStart: (payload: { email: string }) =>
+    request('/api/auth/password-reset/start', { method: 'POST', body: JSON.stringify(payload) }),
+  passwordResetComplete: (payload: { email: string; code: string; new_password: string }) =>
+    request('/api/auth/password-reset/complete', { method: 'POST', body: JSON.stringify(payload) }),
+  createTorrent: (payload: Record<string, any>) =>
+    request('/api/torrents', { method: 'POST', body: JSON.stringify(payload) }),
+  listTorrents: (params?: URLSearchParams) => {
+    const suffix = params ? `?${params.toString()}` : '';
+    return request(`/api/torrents${suffix}`);
+  },
+  getTorrent: (id: number) => request(`/api/torrents/${id}`),
+  cancelTorrent: (id: number) => request(`/api/torrents/${id}/cancel`, { method: 'POST' }),
+};

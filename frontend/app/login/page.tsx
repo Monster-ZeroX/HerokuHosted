@@ -1,56 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
+import { api } from '../../lib/api';
 import { useRouter } from 'next/navigation';
-import { GlassCard } from '../../components/GlassCard';
-import { login } from '../../lib/api';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [form, setForm] = useState({ email_or_username: '', password: '' });
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     try {
-      await login(username, password);
+      await api.login(form.email_or_username, form.password);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
   };
 
   return (
-    <GlassCard title="Welcome back" icon="👋">
-      <form onSubmit={submit} style={{ display: 'grid', gap: 14 }}>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ color: 'var(--text-secondary)' }}>Username</span>
-          <input
-            style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' }}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </label>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span style={{ color: 'var(--text-secondary)' }}>Password</span>
-          <input
-            type="password"
-            style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' }}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        {error && <div className="badge warn">{error}</div>}
-        <button className="button-primary" type="submit" disabled={loading}>
-          {loading ? 'Signing in…' : 'Sign in'}
+    <div className="glass" style={{ padding: 24 }}>
+      <h2>Log in</h2>
+      {error && <p className="error-text">{error}</p>}
+      <form onSubmit={onSubmit} className="form-grid">
+        <input
+          placeholder="Email or username"
+          value={form.email_or_username}
+          onChange={(e) => setForm({ ...form, email_or_username: e.target.value })}
+        />
+        <input
+          placeholder="Password"
+          type="password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+        <button className="button-primary" type="submit">
+          Sign in
         </button>
       </form>
-    </GlassCard>
+      <p style={{ marginTop: 12 }}>
+        <Link href="/password-reset">Forgot password?</Link>
+      </p>
+    </div>
   );
 }
