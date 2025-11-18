@@ -4,7 +4,7 @@ DirectTorrent.me pairs a Flask JSON API with a Next.js frontend for torrent and 
 
 ## Architecture at a glance
 - **Backend:** Flask app factory (`webapp/app_factory.py`) exposing JSON-only routes under `/api/*` and using SQLAlchemy models in `webapp/models.py`. Business logic lives in `webapp/services/` (auth, torrents, billing, stats, etc.).
-- **Frontend:** Next.js (app router) in `frontend/` consuming the API via `frontend/lib/api.ts` with `credentials: 'include'` so browser sessions work.
+- **Frontend:** Single Next.js (app router) site in `frontend/` consuming the API via `frontend/lib/api.ts` with `credentials: 'include'` so browser sessions work.
 - **Data/Storage:** External Postgres (via `DATABASE_URL`), libtorrent for downloads, and rclone for uploads to Google Drive. Jobs capture `app_role`/`app_instance` for free vs paid Heroku dynos.
 - **Legacy:** Telegram bot and old templates live in `legacy/` for reference but are not used by the new stack.
 
@@ -57,42 +57,17 @@ DirectTorrent.me pairs a Flask JSON API with a Next.js frontend for torrent and 
    Visit http://localhost:3000. Cookies will flow because the API sets `Access-Control-Allow-Credentials` and the frontend uses `credentials: 'include'`.
 
 ## Deploying the backend to Heroku
-1. Create separate apps for free and paid processing (plus an optional backup) all pointing to the same managed Postgres:
-   ```bash
-   heroku create directtorrent-free-1
-   heroku create directtorrent-paid-1
-   heroku addons:create heroku-postgresql:standard-0 --app directtorrent-paid-1
-   heroku addons:attach directtorrent-paid-1::DATABASE --app directtorrent-free-1
-   ```
-2. Configure shared settings on each app:
-   ```bash
-   heroku config:set SECRET_KEY="<strong-secret>" --app directtorrent-free-1
-   heroku config:set SECRET_KEY="<strong-secret>" --app directtorrent-paid-1
+Use the **single codebase** to deploy two web apps that share one Postgres: one with `APP_ROLE=FREE` and one with `APP_ROLE=PAID` (optionally a backup). The Next.js frontend is shared by all users and simply points to whichever backend you want browsers to hit.
 
-   heroku config:set APP_ROLE=FREE APP_INSTANCE=directtorrent-free-1 --app directtorrent-free-1
-   heroku config:set APP_ROLE=PAID APP_INSTANCE=directtorrent-paid-1 --app directtorrent-paid-1
+### One-click deploy buttons (no CLI required)
+Click the button twice—once to spin up your free dyno (set `APP_ROLE=FREE`) and once for the paid dyno (`APP_ROLE=PAID`). Both buttons target this branch: `codex/refactor-project-to-flask-api-and-next.js-frontend`.
 
-   heroku config:set RCLONE_REMOTE_NAME=gdrive RCLONE_BASE_DIR=DirectTorrent --app directtorrent-free-1
-   heroku config:set RCLONE_REMOTE_NAME=gdrive RCLONE_BASE_DIR=DirectTorrent --app directtorrent-paid-1
+[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Monster-ZeroX/HerokuHosted/tree/codex/refactor-project-to-flask-api-and-next.js-frontend)
 
-   # Paste the full rclone.conf content
-   heroku config:set RCLONE_CONFIG="$(cat ~/.config/rclone/rclone.conf)" --app directtorrent-free-1
-   heroku config:set RCLONE_CONFIG="$(cat ~/.config/rclone/rclone.conf)" --app directtorrent-paid-1
+After deploy, open each app’s Settings → Config Vars and fill the checklist below (match `APP_ROLE`/`APP_INSTANCE` to the dyno).
 
-   # Maileroo (or skip to log-only)
-   heroku config:set MAILEROO_API_KEY="<api-key>" MAILEROO_SENDER="noreply@directtorrent.me" --app directtorrent-free-1
-   heroku config:set MAILEROO_API_KEY="<api-key>" MAILEROO_SENDER="noreply@directtorrent.me" --app directtorrent-paid-1
-
-   # CORS for your Vercel domain
-   heroku config:set ALLOWED_ORIGINS="https://directtorrent.vercel.app" --app directtorrent-free-1
-   heroku config:set ALLOWED_ORIGINS="https://directtorrent.vercel.app" --app directtorrent-paid-1
-   ```
-3. Deploy the code (push the same branch to both apps):
-   ```bash
-   git push https://git.heroku.com/directtorrent-free-1.git HEAD:main
-   git push https://git.heroku.com/directtorrent-paid-1.git HEAD:main
-   ```
-4. Verify dynos are web-only (Procfile: `web: gunicorn web_server:app ...`) and that each app reports its role via `/api/admin/usage/heroku` stats.
+### Manual CLI alternative (optional)
+If you prefer the CLI, you can still create apps and push the same branch to both dynos, then set config vars as shown above. Verify dynos are web-only (Procfile: `web: gunicorn web_server:app ...`) and that each app reports its role via `/api/admin/usage/heroku`.
 
 ### Heroku config vars (copy/paste checklist)
 Set these on **every** DirectTorrent.me Heroku app unless marked optional. Values that differ between free/paid apps are noted.
@@ -137,7 +112,7 @@ Set these on **every** DirectTorrent.me Heroku app unless marked optional. Value
 ## Connecting frontend and backend
 - **CORS:** Ensure the backend `ALLOWED_ORIGINS` includes your Vercel domain so cookies are accepted.
 - **Sessions:** The API uses Flask sessions; keep `credentials: 'include'` (already set in `frontend/lib/api.ts`).
-- **Plan-aware behavior:** The backend enforces daily limits and marks jobs with `app_role`/`app_instance`; paid frontends should point to a backend with `APP_ROLE=PAID` to unlock higher limits and priority flags in responses.
+- **Plan-aware behavior:** The backend enforces daily limits and marks jobs with `app_role`/`app_instance`; the single Next.js frontend can target either backend. Use the paid backend URL for paid users (priority speed/support) and the free backend for free users.
 
 ## Running tests
 From the repo root:

@@ -35,3 +35,8 @@ export const api = {
   getTorrent: (id: number) => request(`/api/torrents/${id}`),
   cancelTorrent: (id: number) => request(`/api/torrents/${id}/cancel`, { method: 'POST' }),
 };
+
+export async function fetchTorrent(id: number | string) {
+  const data = await api.getTorrent(Number(id));
+  return (data as any).job ?? data;
+}
