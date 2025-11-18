@@ -60,11 +60,11 @@ DirectTorrent.me pairs a Flask JSON API with a Next.js frontend for torrent and 
 Use the **single codebase** to deploy two web apps that share one Postgres: one with `APP_ROLE=FREE` and one with `APP_ROLE=PAID` (optionally a backup). The Next.js frontend is shared by all users and simply points to whichever backend you want browsers to hit.
 
 ### One-click deploy buttons (no CLI required)
-Click the button twice—once to spin up your free dyno (set `APP_ROLE=FREE`) and once for the paid dyno (`APP_ROLE=PAID`). Both buttons target this branch: `codex/refactor-project-to-flask-api-and-next.js-frontend`.
+Click the button twice—once to spin up your free dyno (set `APP_ROLE=FREE`) and once for the paid dyno (`APP_ROLE=PAID`). The button below pins the working branch that already contains the root-level `app.json` Heroku requires.
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Monster-ZeroX/HerokuHosted/tree/codex/refactor-project-to-flask-api-and-next.js-frontend)
+[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https://github.com/Monster-ZeroX/HerokuHosted/tree/work)
 
-The branch above includes a root-level `app.json` tailored for the Flask API (web dyno only), so the one-click button will load the configuration screen without requiring the Heroku CLI.
+Heroku clones that branch and reads `/app.json` directly, so you should no longer see the "No app.json located" error when launching from the button.
 
 After deploy, open each app’s Settings → Config Vars and fill the checklist below (match `APP_ROLE`/`APP_INSTANCE` to the dyno).
 
