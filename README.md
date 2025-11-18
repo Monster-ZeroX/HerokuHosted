@@ -62,7 +62,7 @@ Use the **single codebase** to deploy two web apps that share one Postgres: one 
 ### One-click deploy buttons (no CLI required)
 Click the button twice—once to spin up your free dyno (set `APP_ROLE=FREE`) and once for the paid dyno (`APP_ROLE=PAID`). The button below pins the working branch that already contains the root-level `app.json` Heroku requires.
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https://github.com/Monster-ZeroX/HerokuHosted/tree/work)
+[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https://github.com/Monster-ZeroX/HerokuHosted/tree/codex/refactor-project-to-flask-api-and-next.js-frontend)
 
 Heroku clones that branch and reads `/app.json` directly, so you should no longer see the "No app.json located" error when launching from the button.
 
