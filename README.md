@@ -14,6 +14,7 @@ DirectTorrent.me pairs a Flask JSON API with a Next.js frontend for torrent and 
 - Postgres database URL
 - rclone config that can write to your Google Drive remote
 - Maileroo API key (for OTP email) or rely on console logging in dev
+- Full config var reference: see [`CONFIG_VARS.md`](CONFIG_VARS.md) for every environment variable and where to set it (Heroku, Vercel, and local `.env`).
 
 ## Backend setup (local)
 1. Create a virtualenv and install dependencies:
