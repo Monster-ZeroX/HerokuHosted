@@ -15,7 +15,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///directtorrent.db"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SAMESITE=os.environ.get("SESSION_COOKIE_SAMESITE", "None"),
+        SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "true").lower()
+        in {"1", "true", "yes"},
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     )
 

@@ -113,8 +113,9 @@ Set these on **every** DirectTorrent.me Heroku app unless marked optional. Value
 
 ## Connecting frontend and backend
 - **CORS:** Ensure the backend `ALLOWED_ORIGINS` includes your Vercel domain so cookies are accepted.
-- **Sessions:** The API uses Flask sessions; keep `credentials: 'include'` (already set in `frontend/lib/api.ts`).
+- **Sessions:** The API uses Flask sessions; keep `credentials: 'include'` (already set in `frontend/lib/api.ts`). For cross-domain deployments, set `SESSION_COOKIE_SAMESITE=None` and `SESSION_COOKIE_SECURE=true` in Heroku config so browsers will send cookies to the API from the Vercel origin.
 - **Plan-aware behavior:** The backend enforces daily limits and marks jobs with `app_role`/`app_instance`; the single Next.js frontend can target either backend. Use the paid backend URL for paid users (priority speed/support) and the free backend for free users.
+- **API reference:** A full endpoint-by-endpoint guide lives in [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for quick troubleshooting or testing.
 
 ## Running tests
 From the repo root:

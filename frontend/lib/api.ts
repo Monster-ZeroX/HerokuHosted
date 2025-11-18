@@ -1,5 +1,6 @@
 function normalizeApiBase(): string {
-  const raw = process.env.NEXT_PUBLIC_API_BASE;
+  const raw =
+    process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 
   if (!raw) {
     // Avoid mixed-content failures when the frontend is served over HTTPS.
