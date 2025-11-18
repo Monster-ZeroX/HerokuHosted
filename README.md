@@ -94,6 +94,36 @@ DirectTorrent.me pairs a Flask JSON API with a Next.js frontend for torrent and 
    ```
 4. Verify dynos are web-only (Procfile: `web: gunicorn web_server:app ...`) and that each app reports its role via `/api/admin/usage/heroku` stats.
 
+### Heroku config vars (copy/paste checklist)
+Set these on **every** DirectTorrent.me Heroku app unless marked optional. Values that differ between free/paid apps are noted.
+
+| Variable | Required? | Suggested value / notes |
+| --- | --- | --- |
+| `SECRET_KEY` | Yes | Strong random string for Flask sessions. |
+| `DATABASE_URL` | Yes | Provided automatically when you attach Heroku Postgres; share the same database across free/paid apps. |
+| `APP_ROLE` | Yes | `FREE` for free dynos, `PAID` for paid dynos. |
+| `APP_INSTANCE` | Yes | Unique label for the dyno/app (e.g., `directtorrent-free-1`, `directtorrent-paid-1`). Falls back to `HEROKU_APP_NAME`. |
+| `ALLOWED_ORIGINS` | Yes | Comma-separated list of frontend origins (`https://<your-vercel-domain>`). |
+| `MAILEROO_API_KEY` | Optional | Needed to send OTP emails in production. Leave unset to log OTPs only. |
+| `MAILEROO_SENDER` | Optional | Sender email for OTPs (e.g., `noreply@directtorrent.me`). Defaults to `noreply@directtorrent.me`. |
+| `RCLONE_CONFIG` | Yes | Full contents of your `rclone.conf` file (paste as a single value). |
+| `RCLONE_CONFIG_PATH` | Optional | Path where the config is written. Default `/app/rclone.conf`. |
+| `RCLONE_REMOTE_NAME` | Yes | Remote name from your rclone config (e.g., `gdrive`). |
+| `RCLONE_BASE_DIR` | Optional | Base folder on the remote for uploads (e.g., `DirectTorrent`). |
+| `INDEX_BASE_URL` | Optional | Base URL of a public Drive index if you expose streaming links. |
+| `MEGA_EMAIL` | Optional | Mega.nz account email for premium transfers. |
+| `MEGA_PASSWORD` | Optional | Mega.nz account password. |
+| `GENIE_API_KEY` | Optional | Genie Business Connect API key for billing/transactions. |
+| `GENIE_MERCHANT_ID` | Optional | Genie merchant ID. |
+| `GENIE_API_BASE` | Optional | Genie API base (default `https://api.geniebiz.lk/public/v2`). |
+| `GENIE_CREATE_PAYMENT_URL` | Optional | Override for Genie create-payment endpoint. |
+| `GENIE_PAYMENT_STATUS_URL` | Optional | Override template for Genie payment status checks. |
+| `GENIE_CURRENCY` | Optional | Currency code for payments (default `LKR`). |
+| `PLAN_100_PRICE_LKR` | Optional | Price override for 100GB/day plan (default `300`). |
+| `PLAN_300_PRICE_LKR` | Optional | Price override for 300GB/day plan (default `600`). |
+| `PLAN_UNLIMITED_PRICE_LKR` | Optional | Price override for unlimited plan (default `1200`). |
+| `PORT` | No | Heroku sets this automatically for web dynos. |
+
 ## Deploying the frontend to Vercel
 1. From the `frontend/` directory run `vercel` (or use the Vercel dashboard) and connect the project.
 2. Set environment variables in Vercel:
