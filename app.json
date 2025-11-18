@@ -1,209 +1,126 @@
 {
-  "name": "Torrent to Google Drive Bot",
-  "description": "A Telegram bot that downloads torrents and uploads them to Google Drive with direct streaming links",
-  "repository": "https://github.com/yourusername/torrent-to-gdrive-bot",
-  "keywords": [
-    "telegram",
-    "bot",
-    "torrent",
-    "google-drive",
-    "rclone",
-    "libtorrent",
-    "streaming"
-  ],
+  "name": "DirectTorrent.me Backend",
+  "description": "Flask JSON API for DirectTorrent.me with libtorrent + rclone uploads and plan-aware limits.",
+  "repository": "https://github.com/Monster-ZeroX/HerokuHosted",
   "stack": "heroku-22",
   "buildpacks": [
-    {
-      "url": "https://github.com/heroku/heroku-buildpack-apt"
-    },
-    {
-      "url": "heroku/python"
-    }
+    { "url": "https://github.com/heroku/heroku-buildpack-apt" },
+    { "url": "heroku/python" }
   ],
   "formation": {
     "web": {
       "quantity": 1,
       "size": "eco"
-    },
-    "worker": {
-      "quantity": 1,
-      "size": "eco"
-    }
-  },
-  "env": {
-    "BOT_TOKEN": {
-      "description": "Your Telegram Bot Token from @BotFather",
-      "required": true
-    },
-    "ADMIN_USERNAME": {
-      "description": "Admin username for the built-in web user. Defaults to MonsterZeroX if not set.",
-      "required": false
-    },
-    "ADMIN_PASSWORD": {
-      "description": "Admin password for the built-in web user. Defaults to Kaveesha@2005 if not set.",
-      "required": false
-    },
-    "DEFAULT_INVITE_CODE": {
-      "description": "Invite code automatically created for first-time setup. Defaults to Kaveesha if not set.",
-      "required": false
-    },
-    "ALLOWED_ORIGINS": {
-      "description": "Comma-separated list of origins allowed for CORS (useful for the Next.js frontend).",
-      "required": false
-    },
-    "RCLONE_CONFIG": {
-      "description": "Your rclone.conf file content (entire file as a single value). Encode this properly or use base64 if needed.",
-      "required": true
-    },
-    "RCLONE_CONFIG_PATH": {
-      "description": "Filesystem path where the rclone config will be written. Defaults to /app/rclone.conf.",
-      "value": "/app/rclone.conf",
-      "required": false
-    },
-    "RCLONE_REMOTE_NAME": {
-      "description": "The name of your rclone remote (e.g., 'gdrive' if your rclone.conf has [gdrive])",
-      "value": "gdrive",
-      "required": true
-    },
-    "RCLONE_BASE_DIR": {
-      "description": "Base directory on Google Drive where files will be uploaded",
-      "value": "TorrentBot",
-      "required": false
-    },
-    "INDEX_BASE_URL": {
-      "description": "Base URL of your Google Drive index for generating direct links (e.g., https://index.yourdomain.com). Leave empty if you don't have an index.",
-      "required": false
-    },
-    "OWNER_IDS": {
-      "description": "Comma-separated list of Telegram user IDs who can use the bot (leave empty to allow all users)",
-      "required": false
-    },
-    "DOWNLOAD_DIR": {
-      "description": "Temporary download directory",
-      "value": "/tmp/downloads",
-      "required": false
-    },
-    "MAX_DOWNLOAD_SIZE": {
-      "description": "Maximum download size in bytes (default: 1GB)",
-      "value": "1073741824",
-      "required": false
-    },
-    "CONCURRENT_DOWNLOADS": {
-      "description": "Maximum number of concurrent downloads",
-      "value": "3",
-      "required": false
-    },
-    "TORRENT_TIMEOUT": {
-      "description": "Torrent download timeout in seconds",
-      "value": "3600",
-      "required": false
-    },
-    "SEED_TIME": {
-      "description": "Time to seed after download in seconds (0 = no seeding)",
-      "value": "0",
-      "required": false
-    },
-    "PROGRESS_UPDATE_INTERVAL": {
-      "description": "Progress update interval in seconds",
-      "value": "10",
-      "required": false
-    },
-    "LOG_LEVEL": {
-      "description": "Logging level (DEBUG, INFO, WARNING, ERROR)",
-      "value": "INFO",
-      "required": false
-    },
-    "DATABASE_URL": {
-      "description": "Full database connection string. Heroku Postgres will populate this automatically.",
-      "required": false
-    },
-    "TMDB_API_KEY": {
-      "description": "TMDB v3 API key (set either this or TMDB_API).",
-      "required": false
-    },
-    "TMDB_API": {
-      "description": "Alternate TMDB v3 API key env name supported by the app.",
-      "required": false
-    },
-    "TMDB_BEARER": {
-      "description": "TMDB v4 bearer token (auto-prefixed if missing Bearer).",
-      "required": false
-    },
-    "TMDB_TOKEN": {
-      "description": "Alternate TMDB v4 bearer token env name supported by the app.",
-      "required": false
-    },
-    "GENIE_API_KEY": {
-      "description": "Genie Business Connect API key used for paid plan upgrades.",
-      "required": false
-    },
-    "GENIE_MERCHANT_ID": {
-      "description": "Merchant ID for Genie Business Connect.",
-      "required": false
-    },
-    "GENIE_API_BASE": {
-      "description": "Base API URL for Genie Business Connect (override if the default endpoint changes).",
-      "value": "https://api.geniebiz.lk/public/v2",
-      "required": false
-    },
-    "GENIE_CREATE_PAYMENT_URL": {
-      "description": "Optional override for the Genie create payment endpoint if your account uses a different path.",
-      "required": false
-    },
-    "GENIE_PAYMENT_STATUS_URL": {
-      "description": "Optional override template for payment status lookups (use {payment_id} in the URL).",
-      "required": false
-    },
-    "GENIE_CURRENCY": {
-      "description": "Currency code used for paid plans (defaults to LKR).",
-      "value": "LKR",
-      "required": false
-    },
-    "PLAN_100_PRICE_LKR": {
-      "description": "Override price (LKR) for the 100GB/day plan (defaults to 300).",
-      "value": "300",
-      "required": false
-    },
-    "PLAN_300_PRICE_LKR": {
-      "description": "Override price (LKR) for the 300GB/day plan (defaults to 600).",
-      "value": "600",
-      "required": false
-    },
-    "PLAN_UNLIMITED_PRICE_LKR": {
-      "description": "Override price (LKR) for the unlimited plan (defaults to 1200).",
-      "value": "1200",
-      "required": false
-    },
-    "WORKER_API_TOKEN": {
-      "description": "Shared secret the primary app uses to authenticate status callbacks from a remote worker app.",
-      "required": false
-    },
-    "PRIMARY_API_BASE": {
-      "description": "Primary app base URL (e.g., https://your-primary-app.herokuapp.com) for a remote worker to call if you use API-based callbacks instead of a shared database.",
-      "required": false
-    },
-    "MEGA_EMAIL": {
-      "description": "Mega.nz premium account email (optional; anonymous mode used if empty).",
-      "required": false
-    },
-    "MEGA_PASSWORD": {
-      "description": "Mega.nz premium account password (optional; anonymous mode used if empty).",
-      "required": false
-    },
-    "PORT": {
-      "description": "Port for the Flask web server (Heroku sets this automatically).",
-      "required": false
-    },
-    "SECRET_KEY": {
-      "description": "Secret key for Flask sessions (auto-generated if not set)",
-      "generator": "secret",
-      "required": false
     }
   },
   "addons": [
     "heroku-postgresql:essential-0"
   ],
+  "env": {
+    "SECRET_KEY": {
+      "description": "Secret key for Flask sessions.",
+      "generator": "secret",
+      "required": true
+    },
+    "DATABASE_URL": {
+      "description": "Database URL (Heroku Postgres attaches this automatically).",
+      "required": true
+    },
+    "APP_ROLE": {
+      "description": "Set to FREE or PAID depending on the dyno role.",
+      "required": true
+    },
+    "APP_INSTANCE": {
+      "description": "Unique label for this dyno/app (e.g., directtorrent-free-1).",
+      "required": false
+    },
+    "ALLOWED_ORIGINS": {
+      "description": "Comma-separated origins for CORS (e.g., https://your-frontend.vercel.app).",
+      "required": true
+    },
+    "MAILEROO_API_KEY": {
+      "description": "Maileroo API key used to send OTP emails.",
+      "required": false
+    },
+    "MAILEROO_SENDER": {
+      "description": "Sender email for OTP messages (e.g., noreply@directtorrent.me).",
+      "value": "noreply@directtorrent.me",
+      "required": false
+    },
+    "RCLONE_CONFIG": {
+      "description": "Full contents of your rclone.conf file (paste as one value).",
+      "required": true
+    },
+    "RCLONE_CONFIG_PATH": {
+      "description": "Path where the config will be written inside the dyno.",
+      "value": "/app/rclone.conf",
+      "required": false
+    },
+    "RCLONE_REMOTE_NAME": {
+      "description": "Remote name from your rclone config (e.g., gdrive).",
+      "value": "gdrive",
+      "required": true
+    },
+    "RCLONE_BASE_DIR": {
+      "description": "Base directory on the remote for uploads.",
+      "value": "DirectTorrent",
+      "required": false
+    },
+    "INDEX_BASE_URL": {
+      "description": "Optional public index base URL for streaming links.",
+      "required": false
+    },
+    "MEGA_EMAIL": {
+      "description": "Mega.nz account email (optional).",
+      "required": false
+    },
+    "MEGA_PASSWORD": {
+      "description": "Mega.nz account password (optional).",
+      "required": false
+    },
+    "GENIE_API_KEY": {
+      "description": "Genie Business Connect API key for payments.",
+      "required": false
+    },
+    "GENIE_MERCHANT_ID": {
+      "description": "Genie merchant ID.",
+      "required": false
+    },
+    "GENIE_API_BASE": {
+      "description": "Genie API base URL.",
+      "value": "https://api.geniebiz.lk/public/v2",
+      "required": false
+    },
+    "GENIE_CREATE_PAYMENT_URL": {
+      "description": "Override for Genie create-payment endpoint.",
+      "required": false
+    },
+    "GENIE_PAYMENT_STATUS_URL": {
+      "description": "Override template for Genie payment status checks.",
+      "required": false
+    },
+    "GENIE_CURRENCY": {
+      "description": "Currency code for payments.",
+      "value": "LKR",
+      "required": false
+    },
+    "PLAN_100_PRICE_LKR": {
+      "description": "Price override for 100GB/day plan.",
+      "value": "300",
+      "required": false
+    },
+    "PLAN_300_PRICE_LKR": {
+      "description": "Price override for 300GB/day plan.",
+      "value": "600",
+      "required": false
+    },
+    "PLAN_UNLIMITED_PRICE_LKR": {
+      "description": "Price override for unlimited plan.",
+      "value": "1200",
+      "required": false
+    }
+  },
   "scripts": {
-    "postdeploy": "echo 'Bot deployed successfully! Use /start in your Telegram bot to begin.'"
+    "postdeploy": "echo 'DirectTorrent.me backend deployed.'"
   }
 }

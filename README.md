@@ -64,6 +64,8 @@ Click the button twice—once to spin up your free dyno (set `APP_ROLE=FREE`) an
 
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Monster-ZeroX/HerokuHosted/tree/codex/refactor-project-to-flask-api-and-next.js-frontend)
 
+The branch above includes a root-level `app.json` tailored for the Flask API (web dyno only), so the one-click button will load the configuration screen without requiring the Heroku CLI.
+
 After deploy, open each app’s Settings → Config Vars and fill the checklist below (match `APP_ROLE`/`APP_INSTANCE` to the dyno).
 
 ### Manual CLI alternative (optional)
