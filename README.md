@@ -104,7 +104,7 @@ Set these on **every** DirectTorrent.me Heroku app unless marked optional. Value
 ## Deploying the frontend to Vercel
 1. From the `frontend/` directory run `vercel` (or use the Vercel dashboard) and connect the project.
 2. Set environment variables in Vercel:
-   - `NEXT_PUBLIC_API_BASE` = URL of the preferred backend (e.g., `https://directtorrent-free-1.herokuapp.com` if you route all browser traffic through the free app, or a load balancer if present).
+   - `NEXT_PUBLIC_API_BASE` = URL of the preferred backend (e.g., `https://directtorrent-free-1.herokuapp.com` if you route all browser traffic through the free app, or a load balancer if present). **Use an HTTPS URL**; browsers block mixed-content requests from the HTTPS Vercel frontend to an HTTP API and will surface a generic "Failed to fetch" error.
 3. Build and deploy:
    ```bash
    npm run build
@@ -122,6 +122,15 @@ From the repo root:
 pytest -q
 ```
 This covers OTP flows, daily limit enforcement, and torrent status transitions.
+
+## Quick API smoke test from your laptop
+A small helper script lives at `tools/check_api.py` to verify the deployed API responds as expected without opening the browser. Example:
+
+```bash
+python tools/check_api.py --base https://your-backend.herokuapp.com --email demo@example.com --password hunter2
+```
+
+It hits `/api/auth/me`, `/api/auth/login`, `/api/torrents`, and (optionally with `--admin`) `/api/admin/overview`, printing the JSON responses.
 
 ## Useful paths
 - Backend entrypoint: `web_server.py`

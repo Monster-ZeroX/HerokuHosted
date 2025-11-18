@@ -1,4 +1,31 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5000';
+function normalizeApiBase(): string {
+  const raw = process.env.NEXT_PUBLIC_API_BASE;
+
+  if (!raw) {
+    // Avoid mixed-content failures when the frontend is served over HTTPS.
+    if (typeof window !== 'undefined') {
+      return `${window.location.protocol}//${window.location.host}`;
+    }
+    const deployHost = process.env.VERCEL_URL;
+    if (deployHost) {
+      return `https://${deployHost}`;
+    }
+    return 'http://localhost:5000';
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && raw.startsWith('http://')) {
+      return raw.replace('http://', 'https://');
+    }
+    return raw;
+  }
+
+  // Allow setting a bare host in NEXT_PUBLIC_API_BASE (e.g., "directtorrent-api.herokuapp.com").
+  const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+  return `${protocol}//${raw}`;
+}
+
+const API_BASE = normalizeApiBase();
 
 async function request(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
