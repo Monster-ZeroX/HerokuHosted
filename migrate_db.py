@@ -4,11 +4,23 @@ Run this script once to update the database schema.
 """
 import os
 import sys
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from datetime import datetime
 
+def _execute_step(conn, sql: str, label: str):
+    """Execute a single SQL statement with its own transaction and error handling."""
+    txn = conn.begin()
+    try:
+        conn.execute(text(sql))
+        txn.commit()
+        print(f"  ✓ {label}")
+    except Exception as exc:  # pragma: no cover - defensive logging
+        txn.rollback()
+        print(f"  - {label}: {exc}")
+
+
 def run_migration():
-    """Add new columns to existing tables."""
+    """Add new columns to existing tables while tolerating missing legacy tables."""
     database_url = os.environ.get('DATABASE_URL')
 
     if not database_url:
@@ -23,151 +35,155 @@ def run_migration():
     engine = create_engine(database_url)
 
     with engine.connect() as conn:
+        inspector = inspect(engine)
         print("Starting migration...")
 
         # Add columns to users table
         print("Adding columns to users table...")
 
-        try:
-            # Add total_downloaded column
-            conn.execute(text("""
+        if inspector.has_table("users"):
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS total_downloaded BIGINT DEFAULT 0
-            """))
-            print("  ✓ Added total_downloaded column")
-        except Exception as e:
-            print(f"  - total_downloaded: {e}")
+                """,
+                "Added total_downloaded column",
+            )
 
-        try:
-            # Add daily_downloaded column
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS daily_downloaded BIGINT DEFAULT 0
-            """))
-            print("  ✓ Added daily_downloaded column")
-        except Exception as e:
-            print(f"  - daily_downloaded: {e}")
+                """,
+                "Added daily_downloaded column",
+            )
 
-        try:
-            # Add last_reset_date column
-            conn.execute(text(f"""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS last_reset_date DATE DEFAULT CURRENT_DATE
-            """))
-            print("  ✓ Added last_reset_date column")
-        except Exception as e:
-            print(f"  - last_reset_date: {e}")
+                """,
+                "Added last_reset_date column",
+            )
 
-        try:
-            # Add daily_limit column
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS daily_limit BIGINT DEFAULT 0
-            """))
-            print("  ✓ Added daily_limit column")
-        except Exception as e:
-            print(f"  - daily_limit: {e}")
+                """,
+                "Added daily_limit column",
+            )
 
-        try:
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS base_daily_limit BIGINT DEFAULT 0
-            """))
-            print("  ✓ Added base_daily_limit column")
-        except Exception as e:
-            print(f"  - base_daily_limit: {e}")
+                """,
+                "Added base_daily_limit column",
+            )
 
-        try:
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50)
-            """))
-            print("  ✓ Added subscription_plan column")
-        except Exception as e:
-            print(f"  - subscription_plan: {e}")
+                """,
+                "Added subscription_plan column",
+            )
 
-        try:
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP
-            """))
-            print("  ✓ Added subscription_expires_at column")
-        except Exception as e:
-            print(f"  - subscription_expires_at: {e}")
+                """,
+                "Added subscription_expires_at column",
+            )
+        else:
+            print("  - users table not found; skipping user column migrations")
 
         # Add columns to invite_codes table
         print("\nAdding columns to invite_codes table...")
 
-        try:
-            # Add daily_download_limit column
-            conn.execute(text("""
+        if inspector.has_table("invite_codes"):
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE invite_codes
                 ADD COLUMN IF NOT EXISTS daily_download_limit BIGINT DEFAULT 0
-            """))
-            print("  ✓ Added daily_download_limit column")
-        except Exception as e:
-            print(f"  - daily_download_limit: {e}")
+                """,
+                "Added daily_download_limit column",
+            )
+        else:
+            print("  - invite_codes table not found; skipping invite code migrations")
 
         print("\nAdding columns to torrents table...")
 
-        try:
-            conn.execute(text("""
+        if inspector.has_table("torrents"):
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE torrents
                 ADD COLUMN IF NOT EXISTS download_rate FLOAT DEFAULT 0
-            """))
-            print("  ✓ Added download_rate column")
-        except Exception as e:
-            print(f"  - download_rate: {e}")
+                """,
+                "Added download_rate column",
+            )
 
-        try:
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE torrents
                 ADD COLUMN IF NOT EXISTS eta_seconds INTEGER
-            """))
-            print("  ✓ Added eta_seconds column")
-        except Exception as e:
-            print(f"  - eta_seconds: {e}")
+                """,
+                "Added eta_seconds column",
+            )
 
-        try:
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE torrents
                 ADD COLUMN IF NOT EXISTS selection_mode VARCHAR(20) DEFAULT 'all'
-            """))
-            print("  ✓ Added selection_mode column")
-        except Exception as e:
-            print(f"  - selection_mode: {e}")
+                """,
+                "Added selection_mode column",
+            )
 
-        try:
-            conn.execute(text("""
+            _execute_step(
+                conn,
+                """
                 ALTER TABLE torrents
                 ADD COLUMN IF NOT EXISTS selected_file_indices TEXT
-            """))
-            print("  ✓ Added selected_file_indices column")
-        except Exception as e:
-            print(f"  - selected_file_indices: {e}")
+                """,
+                "Added selected_file_indices column",
+            )
+        else:
+            print("  - torrents table not found; skipping torrent column migrations")
 
         print("\nEnsuring payment_transactions table exists...")
-        try:
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS payment_transactions (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL REFERENCES users(id),
-                    plan_key VARCHAR(50) NOT NULL,
-                    amount_cents INTEGER NOT NULL,
-                    currency VARCHAR(10) DEFAULT 'USD',
-                    status VARCHAR(20) DEFAULT 'pending',
-                    reference VARCHAR(100) UNIQUE NOT NULL,
-                    gateway_payment_id VARCHAR(100),
-                    raw_response TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-            print("  ✓ payment_transactions table ready")
-        except Exception as e:
-            print(f"  - payment_transactions: {e}")
+        _execute_step(
+            conn,
+            """
+            CREATE TABLE IF NOT EXISTS payment_transactions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                plan_key VARCHAR(50) NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                currency VARCHAR(10) DEFAULT 'USD',
+                status VARCHAR(20) DEFAULT 'pending',
+                reference VARCHAR(100) UNIQUE NOT NULL,
+                gateway_payment_id VARCHAR(100),
+                raw_response TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            "payment_transactions table ready",
+        )
 
-        conn.commit()
         print("\n✓ Migration completed successfully!")
 
 if __name__ == '__main__':
