@@ -1,9 +1,9 @@
-"""
-Entry point for the Flask web application.
-"""
+"""Entry point for the Flask web application."""
 import os
 import logging
-from webapp.app import app
+
+from webapp import create_app
+
 
 # Configure logging
 logging.basicConfig(
@@ -11,6 +11,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+app = create_app()
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
