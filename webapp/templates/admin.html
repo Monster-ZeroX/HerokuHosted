@@ -56,6 +56,7 @@
                         <th>Daily Usage</th>
                         <th>Total Usage</th>
                         <th>Daily Limit</th>
+                        <th>Tier</th>
                         <th>Created</th>
                         <th>Last Login</th>
                         <th>Actions</th>
@@ -92,6 +93,16 @@
                             <span class="text-muted"><i class="bi bi-infinity"></i> Unlimited</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if user.is_paid %}
+                            <span class="badge bg-success">Paid</span>
+                            {% if user.subscription_expires_at %}
+                            <div class="small text-bright-soft">Expires {{ user.subscription_expires_at.strftime('%Y-%m-%d') }}</div>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge bg-secondary">Free</span>
+                            {% endif %}
+                        </td>
                         <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
                         <td>
                             {% if user.last_login %}
@@ -118,60 +129,6 @@
                                     </button>
                                 </form>
                             </div>
-
-                            <!-- Reset Password Modal -->
-                            <div class="modal fade" id="resetPasswordModal{{ user.id }}" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content" style="border-radius: 16px;">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Reset Password for {{ user.username }}</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <form method="POST" action="{{ url_for('admin_reset_password', user_id=user.id) }}">
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <label class="form-label">New Password</label>
-                                                    <input type="password" class="form-control" name="new_password" required>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                <button type="submit" class="btn btn-primary">Reset Password</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Set Limit Modal -->
-                            <div class="modal fade" id="setLimitModal{{ user.id }}" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content" style="border-radius: 16px;">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Set Download Limit for {{ user.username }}</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <form method="POST" action="{{ url_for('admin_set_user_limit', user_id=user.id) }}">
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Daily Download Limit (GB)</label>
-                                                    <input type="number" class="form-control" name="daily_limit_gb"
-                                                           value="{{ user.get_daily_limit_gb() or '' }}"
-                                                           step="0.1" min="0" placeholder="0 for unlimited">
-                                                    <small class="text-muted">Leave empty or enter 0 for unlimited downloads</small>
-                                                </div>
-                                                <div class="alert alert-info">
-                                                    <i class="bi bi-info-circle"></i> Current usage: {{ user.get_daily_usage_gb() }} GB today
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                <button type="submit" class="btn btn-primary">Set Limit</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}
@@ -183,6 +140,63 @@
         </div>
     </div>
 </div>
+
+<!-- User Modals rendered outside the table to prevent flicker -->
+{% for user in users %}
+    {% if not user.is_admin %}
+    <div class="modal fade" id="resetPasswordModal{{ user.id }}" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 16px;">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Password for {{ user.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_reset_password', user_id=user.id) }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" class="form-control" name="new_password" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Reset Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="setLimitModal{{ user.id }}" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 16px;">
+                <div class="modal-header">
+                    <h5 class="modal-title">Set Download Limit for {{ user.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_set_user_limit', user_id=user.id) }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Daily Download Limit (GB)</label>
+                            <input type="number" class="form-control" name="daily_limit_gb"
+                                   value="{{ user.get_daily_limit_gb() or '' }}"
+                                   step="0.1" min="0" placeholder="0 for unlimited">
+                            <small class="text-muted">Leave empty or enter 0 for unlimited downloads</small>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Current usage: {{ user.get_daily_usage_gb() }} GB today
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Set Limit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
 
 <!-- Invite Codes -->
 <div class="card">
@@ -228,15 +242,21 @@
                         </td>
                         <td>{{ invite.created_at.strftime('%Y-%m-%d') }}</td>
                         <td>
-                            <form method="POST" action="{{ url_for('admin_toggle_invite', invite_id=invite.id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    {% if invite.is_active %}
-                                    <i class="bi bi-pause-circle"></i> Deactivate
-                                    {% else %}
-                                    <i class="bi bi-play-circle"></i> Activate
-                                    {% endif %}
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+                                        data-bs-target="#editInvite{{ invite.id }}">
+                                    <i class="bi bi-pencil"></i> Edit
                                 </button>
-                            </form>
+                                <form method="POST" action="{{ url_for('admin_toggle_invite', invite_id=invite.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary">
+                                        {% if invite.is_active %}
+                                        <i class="bi bi-pause-circle"></i> Deactivate
+                                        {% else %}
+                                        <i class="bi bi-play-circle"></i> Activate
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -279,6 +299,42 @@
         </div>
     </div>
 </div>
+
+<!-- Invite modals rendered outside the table for stability -->
+{% for invite in invite_codes %}
+    <div class="modal fade" id="editInvite{{ invite.id }}" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 16px;">
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Invite {{ invite.code }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_update_invite', invite_id=invite.id) }}">
+                    <div class="modal-body">
+                        <div class="mb-3 form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="inviteActive{{ invite.id }}" name="is_active" {% if invite.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="inviteActive{{ invite.id }}">Invite is active</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Max Uses (-1 for unlimited)</label>
+                            <input type="number" class="form-control" name="max_uses" value="{{ invite.max_uses }}" min="-1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Daily Download Limit (GB)</label>
+                            <input type="number" class="form-control" name="daily_limit_gb" step="0.1" min="0"
+                                   value="{{ invite.get_limit_gb() or 0 }}">
+                            <small class="text-muted">0 for unlimited downloads</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}
 
 <!-- Danger Zone -->
 <div class="card border-danger mt-4">
